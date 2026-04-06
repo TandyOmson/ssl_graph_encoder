@@ -1,0 +1,41 @@
+# Default setup for NN
+datadir: /home/andyt/DProjects/Dself_sup_graph_learning/molecule_embedding_proj/data
+smi_file: /home/andyt/DProjects/Dself_sup_graph_learning/molecule_embedding_proj/data/raw/hydros_minimal.smi
+affins_csv: /home/andyt/DProjects/Dself_sup_graph_learning/molecule_embedding_proj/data/raw/vinardo_affins.csv
+
+objective: rmse
+
+encoder:
+  class_path: src.models.encoders.encoder.Encoder
+  embed_dim: 128
+  num_layers: 5
+  gnn: resgcn
+
+ssl_nn:
+  class_path: src.models.ssl.self_sup_nn.GraphCL
+  aug_1: maskN       
+  aug_2: dropN
+  aug_ratio: 0.2
+  objective: NCE
+
+regression_head:
+  class_path: src.models.reg_heads.regression_head.RegressionHead
+  hidden_dim : 128
+  num_layers: 5
+  dropout: 0.1
+  activation: relu
+  use_layernorm: True
+
+# may need to add options for optimizer and loss function (in finetune) later
+# currently these are defined within pretrain and finetune
+pretrain:
+  batch_size: 128
+  num_workers: 4
+  epochs: 50
+  lr: 1e-4
+
+finetune:
+  freeze_encoder: False
+  batch_size: 128
+  epochs: 50
+  lr: 1e-3

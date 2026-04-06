@@ -1,0 +1,17 @@
+data/raw
+!data/raw/.gitkeep
+data/processed
+!data/processed/.gitkeep
+logs/
+__pycache__
+*.
+*.npz
+*.npy
+*.pt
+*.pth
+*.ckpt
+*.h5
+*.hdf5
+*.onnx
+*.pkl
+*.joblib
