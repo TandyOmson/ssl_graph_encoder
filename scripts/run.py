@@ -33,7 +33,7 @@ class Objective:
         score = objective()      # manual run (experiments and increments)
         score = objective(trial) # optuna run (hyperparameter tuning)
     """
-    def __init__(self, base_config, device, base_name="baseline_nn"):
+    def __init__(self, base_config, device, base_name=None):
         self.base_config = base_config
         self.device = device
         self.base_name = base_name
@@ -57,13 +57,15 @@ class Objective:
         if config["pretrain"]:
             self.build_graph_encoder_ssl(config)
             self.run_pretrain(config)
-            embeddings, labelsout = encoder_embeddings_out(self.encoder, self.dataloader, outfile=f"{config['datadir']}/processed/{self.base_name}_pretrained.npz")
+            if self.base_name:
+                embeddings, labelsout = encoder_embeddings_out(self.encoder, self.dataloader, outfile=f"{config['datadir']}/processed/{self.base_name}_pretrained.npz")
             pretrain_encoder_stats = self.evaluate_encoder(embeddings, labelsout)
             pprint.pprint(pretrain_encoder_stats, width=1)
 
         self.build_model(config)
         self.run_finetune(config)
-        embeddings, labelsout = encoder_embeddings_out(self.encoder, self.dataloader, outfile=f"{config['datadir']}/processed/{self.base_name}_finetuned.npz")
+        if self.base_name:
+            embeddings, labelsout = encoder_embeddings_out(self.encoder, self.dataloader, outfile=f"{config['datadir']}/processed/{self.base_name}_finetuned.npz")
         finetune_encoder_stats = self.evaluate_encoder(embeddings, labelsout)
         pprint.pprint(finetune_encoder_stats)
 
@@ -76,8 +78,9 @@ class Objective:
         config = copy.deepcopy(self.base_config)
 
         if trial is not None:
-            # optuna trial logic
-            config["lr"] = trial.suggest_float("lr", 1e-4, 1e-2, log=True)
+            # optuna trial logic: NEED TO REPLACE THIS WITH HYPERPARAMETER CONFIG HELPER FUNCTIONS AND PUT A TUNING SECTION IN CONFIG
+            config["pretrain"]["lr"] = trial.suggest_float("lr", 1e-4, 1e-2, log=True)
+            config["finetune"]["lr"] = trial.suggest_float("lr", 1e-4, 1e-2, log=True)
 
         return config
     
@@ -145,9 +148,6 @@ class Objective:
     
     # Monitoring, logging, checkpointing, storage and metadata
 
-# using optuna
-# study.optimize(Objective(dataset, BASE_CONFIG), n_trials=50)
-
 logging.basicConfig(level=logging.info)
 log = logging.getLogger("RUN")
 
@@ -163,3 +163,7 @@ if __name__ == "__main__":
     objective = Objective(config, device, base_name="baseline_nn")
     score = objective()
     log.info(f"DONE. Metric: {score:.4f}")
+
+    # using optuna for hyperparameter tuning NEED TO TURN OFF SAVING FILES
+    # study  = optuna.create_study(direction="minimize")
+    # study.optimize(Objective(dataset, config, device), n_trials=50)
