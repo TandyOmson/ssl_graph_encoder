@@ -2,7 +2,8 @@ data/raw/*
 !data/raw/.gitkeep
 data/processed/*
 !data/processed/.gitkeep
-notebooks/
+notebooks/*
+!notebooks/.gitkeep
 logs/
 __pycache__/
 .vscode/
