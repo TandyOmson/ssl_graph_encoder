@@ -3,8 +3,11 @@ data/raw
 data/processed
 !data/processed/.gitkeep
 logs/
-__pycache__
-*.
+__pycache__/
+.vscode/
+*./py[codz]
+*$py.class
+*.org
 *.npz
 *.npy
 *.pt
