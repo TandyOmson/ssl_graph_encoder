@@ -4,9 +4,6 @@
 import logging
 import importlib
 
-import torch
-
-logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
 
 def load_class(class_path):

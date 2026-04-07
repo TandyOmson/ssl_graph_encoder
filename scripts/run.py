@@ -40,14 +40,11 @@ class Objective:
         self.device = device
         self.base_name = base_name
 
-        # Output options
-
         # Runtime state
         self.splitter = None
         self.encoder = None # acts as reference to self.graph_encoder_ssl.encoder
         self.graph_encoder_ssl = None
         self.model = None
-        # later can add pretrain optimizer, finetune optimizer and finetune criterion
 
     def __call__(self, trial=None):
         """ Evaluates a model
@@ -97,8 +94,6 @@ class Objective:
 
         # Restrict to molecules that have affinity labels
         graphs = [graphs[i-1] for i in affins_df.index]
-
-        log.info(f"Loaded graphs and labels. Number of samples: {len(labels)}")
 
         for data, y in zip(graphs, labels):
             data.y = torch.tensor(y, dtype=torch.float).view(1)
@@ -150,8 +145,39 @@ class Objective:
     
     # Monitoring, logging, checkpointing, storage and metadata
 
-logging.basicConfig(level=logging.info)
-log = logging.getLogger("RUN")
+def setup_logging(log_dir):
+    """ configure logging
+    """
+    log_dir = Path(log_dir)
+    log_dir.mkdir(parents=False, exist_ok=True)
+
+    log = logging.getLogger()
+    log.setLevel(logging.DEBUG)
+
+    formatter = logging.Formatter(
+        fmt="%(asctime)s | %(name)s | %(levelname)s | %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+
+    # stdout (debug level) 
+    console = logging.StreamHandler(stream=sys.stdout)
+    console.setLevel(logging.DEBUG)
+    console.setFormatter(formatter)
+    log.addHandler(console)
+
+    # run log 
+    run_handler = logging.FileHandler(log_dir / "run.log", mode="w")
+    run_handler.setLevel(logging.INFO)
+    run_handler.setFormatter(formatter)
+    log.addHandler(run_handler)
+
+    # detail log 
+    detail_handler = logging.FileHandler(log_dir / "detail.log", mode="w")
+    detail_handler.setLevel(logging.DEBUG)
+    detail_handler.setFormatter(formatter)
+    log.addHandler(detail_handler)
+
+log = logging.getLogger(__name__)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -161,12 +187,18 @@ if __name__ == "__main__":
     with open(args.config, "r") as f:
         config = yaml.safe_load(f)
 
+    setup_logging(config["outdir"])
+
     if config["device"] == "cuda":
         if torch.cuda.is_available():
             device = torch.device("cuda")
+            log.info("device is cuda")
         else:
             log.warning("cuda selected, put not available, defaulting to cpu")
-            device = torch.device("cpu")    
+            device = torch.device("cpu")
+    else:
+        device = torch.device("cpu")
+        log.info("device is cpu")
 
     # single baseline run
     if not config.get("tuning", None).get("run_tuning", None):

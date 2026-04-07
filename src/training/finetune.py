@@ -5,12 +5,8 @@ import importlib
 
 import torch
 import torch.nn as nn
-import torch.optim as optim
 
 log = logging.getLogger(__name__)
-
-import torch
-import torch.nn as nn
 
 def load_class(class_path):
     module_name, class_name = class_path.rsplit(".", 1)
