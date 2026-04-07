@@ -5,6 +5,7 @@ affins_csv: /home/andyt/DProjects/Dself_sup_graph_learning/molecule_embedding_pr
 
 run_name: test # determines output names
 objective: rmse
+device: cpu # cuda or cpu, default cpu
 
 encoder:
   class_path: src.models.encoders.encoder.Encoder
@@ -30,7 +31,7 @@ regression_head:
 pretrain:
   batch_size: 128
   num_workers: 4
-  epochs: 2
+  epochs: 50
   optimizer:
     class_path: torch.optim.Adam
     kwargs:
@@ -39,7 +40,7 @@ pretrain:
 finetune:
   freeze_encoder: False
   batch_size: 128
-  epochs: 2
+  epochs: 50
   optimizer:
     class_path: torch.optim.AdamW
     kwargs:

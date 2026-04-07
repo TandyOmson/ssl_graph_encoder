@@ -37,8 +37,9 @@ class PretrainTrainer:
     """ Trainer for self-supervised pretraining molecule embeddings
     """
 
-    def __init__(self, config):
+    def __init__(self, device, config):
         self.epochs = config["pretrain"]["epochs"]
+        self.device = device
 
         optim_cfg = config["pretrain"]["optimizer"]
         self.optim_class = load_class(optim_cfg["class_path"])
@@ -47,8 +48,10 @@ class PretrainTrainer:
     def fit(self, graph_encoder_ssl, dataloader):
         """ Train encoder in-place
         """
-        # set training mode (not necessary but nice to read)
+        graph_encoder_ssl.encoder = graph_encoder_ssl.encoder.to(self.device)
+        graph_encoder_ssl.ssl = graph_encoder_ssl.ssl.to(self.device)
         graph_encoder_ssl.encoder.train()
+
         optimizer = self.optim_class(graph_encoder_ssl.encoder.parameters(), **self.optim_kwargs)
 
         for _ in graph_encoder_ssl.ssl.train(graph_encoder_ssl.encoder, dataloader, optimizer, epochs=self.epochs):

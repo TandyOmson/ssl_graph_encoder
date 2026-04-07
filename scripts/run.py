@@ -124,17 +124,16 @@ class Objective:
         return
 
     def run_pretrain(self, config):
-        pretrain_trainer = PretrainTrainer(config)
+        pretrain_trainer = PretrainTrainer(self.device, config)
         self.encoder = pretrain_trainer.fit(self.graph_encoder_ssl, self.dataloader)
         return
     
     def build_model(self, config):
         self.model = build_finetune_model(self.encoder, config)
-        self.model.to(self.device)
         return
     
     def run_finetune(self, config):
-        finetune_trainer = FinetuneTrainer(config)
+        finetune_trainer = FinetuneTrainer(self.device, config)
         self.model, self.encoder = finetune_trainer.fit(self.model, self.train_loader, self.val_loader)
         return
     
@@ -162,7 +161,13 @@ if __name__ == "__main__":
     with open(args.config, "r") as f:
         config = yaml.safe_load(f)
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    if config["device"] == "cuda":
+        if torch.cuda.is_available():
+            device = torch.device("cuda")
+        else:
+            log.warning("cuda selected, put not available, defaulting to cpu")
+            device = torch.device("cpu")    
+
     # single baseline run
     if not config.get("tuning", None).get("run_tuning", None):
         objective = Objective(config, device, base_name=config["run_name"])

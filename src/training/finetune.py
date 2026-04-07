@@ -56,8 +56,9 @@ def build_finetune_model(encoder, config):
 class FinetuneTrainer:
     """ Trainer for supervised fine-tuning encoder + regression head model 
     """
-    def __init__(self, config):
+    def __init__(self, device, config):
         self.epochs = config["finetune"]["epochs"]
+        self.device = device
 
         optim_cfg = config["finetune"]["optimizer"]
         self.optim_class  = load_class(optim_cfg["class_path"])
@@ -76,10 +77,12 @@ class FinetuneTrainer:
         )
         criterion = self.crit_class(**self.crit_kwargs)
 
+        model = model.to(self.device)
         for epoch in range(self.epochs):
             model.train()
             train_loss = 0
             for data in train_loader:
+                data = data.to(self.device)
                 optimizer.zero_grad()
                 outputs = model(data)
                 loss = criterion(outputs, data.y)
