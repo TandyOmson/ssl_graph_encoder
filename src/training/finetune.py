@@ -3,7 +3,6 @@
 import logging
 import importlib
 
-import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -18,7 +17,27 @@ def load_class(class_path):
     module = importlib.import_module(module_name)
     return getattr(module, class_name)
 
-def create_finetune_model(encoder, config):
+class GraphRegressionModel(nn.Module):
+    """ Final model class including encoder and regression head
+    """
+    # may move optimizer and criterion here later as class attribute
+    def __init__(self, encoder, reg_head):
+        super().__init__()
+        self.encoder = encoder
+        self.reg_head = reg_head
+
+    def forward(self, data):
+        # extract node embeddings
+        graph_emb = self.encoder(data)
+
+        # handle DIG encoder tuple output
+        if isinstance(graph_emb, tuple):
+            graph_emb = graph_emb[0]
+
+        # pass through regression head
+        return self.reg_head(graph_emb)
+
+def build_finetune_model(encoder, config):
     """ Generic factory function
         Build a fine-tuning model for regression on pretrained graph embeddings.
         Can freeze the encoder and add a flexible regression head or retrain encoder
@@ -32,57 +51,48 @@ def create_finetune_model(encoder, config):
 
     reg_head = reg_headClass(config["encoder"]["embed_dim"], **config["regression_head"])
 
-    class GraphRegressionModel(nn.Module):
-        """ Final model class including encoder and regression head
-        """
-        # may move optimizer and criterion here later as class attribute
-        def __init__(self, encoder, reg_head):
-            super().__init__()
-            self.encoder = encoder
-            self.reg_head = reg_head
-
-        def forward(self, data):
-            # extract node embeddings
-            graph_emb = self.encoder(data)
-
-            # handle DIG encoder tuple output
-            if isinstance(graph_emb, tuple):
-                graph_emb = graph_emb[0]
-
-            # pass through regression head
-            return self.reg_head(graph_emb)
-
     return GraphRegressionModel(encoder, reg_head)
 
-def finetune(model, train_loader, val_loader, config):
-    """ Fine-tune the model on the given dataset.
+class FinetuneTrainer:
+    """ Trainer for supervised fine-tuning encoder + regression head model 
     """
-    optimizer = optim.Adam(
-        filter(lambda p: p.requires_grad, model.parameters()), 
-        lr=float(config["finetune"]["lr"])
-    )
-    criterion = nn.MSELoss()
+    def __init__(
+        self,
+        lr,
+        epochs,
+    ):
+        self.lr = float(lr)
+        self.epochs = int(epochs)
 
-    for epoch in range(config["finetune"]["epochs"]):
-        model.train()
-        train_loss = 0
-        for data in train_loader:
-            optimizer.zero_grad()
-            outputs = model(data)
-            loss = criterion(outputs, data.y)
-            loss.backward()
-            optimizer.step()
+    def fit(self, model, train_loader, val_loader):
+        """ Train model in-place
+        """
+        optimizer = optim.Adam(
+            filter(lambda p: p.requires_grad, model.parameters()), 
+            lr=self.lr
+        )
+        criterion = nn.MSELoss()
 
-            train_loss += loss.item()
-        train_loss /= len(train_loader.dataset)
+        for epoch in range(self.epochs):
+            model.train()
+            train_loss = 0
+            for data in train_loader:
+                optimizer.zero_grad()
+                outputs = model(data)
+                loss = criterion(outputs, data.y)
+                loss.backward()
+                optimizer.step()
 
-        model.eval()
-        val_loss = 0.0
-        with torch.no_grad():
-            for data in val_loader:
-                pred = model(data)
-                val_loss += criterion(pred, data.y)
-        val_loss /= len(val_loader.dataset)
-        print(f"Epoch {epoch+1} | Val Loss: {val_loss:.4f} | Train Loss: {train_loss:.4f}")
+                train_loss += loss.item()
+            train_loss /= len(train_loader.dataset)
 
-    return model, model.encoder
+            model.eval()
+            val_loss = 0.0
+            with torch.no_grad():
+                for data in val_loader:
+                    pred = model(data)
+                    val_loss += criterion(pred, data.y)
+            val_loss /= len(val_loader.dataset)
+            print(f"Epoch {epoch+1} | Val Loss: {val_loss:.4f} | Train Loss: {train_loss:.4f}")
+
+        return model, model.encoder

@@ -19,8 +19,8 @@ import optuna
 
 from src.utils.data_preprocessing import smi_to_mol, mol_to_graph, MoleculeDataset, split_dataset
 from src.utils.evaluate_embeddings import supervised_embedding_eval, unsupervised_embedding_eval, evaluate_full_model, encoder_embeddings_out
-from src.training.pretrain import create_pretrain_encoder, pretrain
-from src.training.finetune import create_finetune_model, finetune
+from src.training.pretrain import build_pretrain_encoder, PretrainTrainer
+from src.training.finetune import build_finetune_model, FinetuneTrainer
 from src.utils.tuning_helpers import apply_search_space
 
 class Objective:
@@ -82,7 +82,7 @@ class Objective:
         if trial is not None:
             search_space = config.get("tuning", {}).get("search_space", {})
             config = apply_search_space(config, trial, search_space)
-            
+
         return config
     
     # Essential methods for call
@@ -120,20 +120,22 @@ class Objective:
     def build_graph_encoder_ssl(self, config):
         feat_dim = self.dataloader.dataset[0].x.shape[1]
         embed_dim = config["encoder"]["embed_dim"]
-        self.graph_encoder_ssl = create_pretrain_encoder(feat_dim, embed_dim, config)
+        self.graph_encoder_ssl = build_pretrain_encoder(feat_dim, embed_dim, config)
         return
 
     def run_pretrain(self, config):
-        self.encoder = pretrain(self.graph_encoder_ssl, self.dataloader, config)
+        pretrain_trainer = PretrainTrainer(lr=config["pretrain"]["lr"], epochs=config["pretrain"]["epochs"])
+        self.encoder = pretrain_trainer.fit(self.graph_encoder_ssl, self.dataloader)
         return
     
     def build_model(self, config):
-        self.model = create_finetune_model(self.encoder, config)
+        self.model = build_finetune_model(self.encoder, config)
         self.model.to(self.device)
         return
     
     def run_finetune(self, config):
-        self.model, self.encoder = finetune(self.model, self.train_loader, self.val_loader, config)
+        finetune_trainer = FinetuneTrainer(lr=config["finetune"]["lr"], epochs=config["finetune"]["epochs"])
+        self.model, self.encoder = finetune_trainer.fit(self.model, self.train_loader, self.val_loader)
         return
     
     @staticmethod
@@ -161,12 +163,13 @@ if __name__ == "__main__":
         config = yaml.safe_load(f)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    if not config["tuning"]["run_tuning"]:
-        objective = Objective(config, device, base_name="baseline_nn")
+    # single baseline run
+    if not config.get("tuning", None).get("run_tuning", None):
+        objective = Objective(config, device, base_name=config["run_name"])
         score = objective()
         log.info(f"DONE. Metric: {score:.4f}")
 
-    # hyperparameter tuning
+    # hyperparameter tuning run (set tuning in config)
     else:
         study  = optuna.create_study(direction="minimize")
         study.optimize(Objective(config, device), n_trials=config["tuning"]["n_trials"])

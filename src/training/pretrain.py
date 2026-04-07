@@ -14,7 +14,14 @@ def load_class(class_path):
     module = importlib.import_module(module_name)
     return getattr(module, class_name)
 
-def create_pretrain_encoder(feat_dim, embed_dim, config):
+class GraphEncoder:
+    """ Encoder class containing encoder and training method
+    """
+    def __init__(self, encoder, ssl):
+        self.encoder = encoder
+        self.ssl = ssl
+
+def build_pretrain_encoder(feat_dim, embed_dim, config):
     """ Generic factory function
         Build an encoder model
     """
@@ -24,15 +31,27 @@ def create_pretrain_encoder(feat_dim, embed_dim, config):
     encoder = encoderClass(feat_dim, embed_dim, **config["encoder"])
     ssl = sslClass(embed_dim, **config["ssl_nn"])
 
-    class GraphEncoder():
-        """ Encoder class containing encoder and training method
-        """
-        # may move optimizer here as class attribute later
-        def __init__(self, encoder, ssl):
-            self.encoder = encoder
-            self.ssl = ssl
-
     return GraphEncoder(encoder, ssl)
+
+class PretrainTrainer:
+    """ Trainer for self-supervised pretraining molecule embeddings
+    """
+
+    def __init__(self, lr, epochs):
+        self.lr = float(lr)
+        self.epochs = int(epochs)
+
+    def fit(self, graph_encoder_ssl, dataloader):
+        """ Train encoder in-place
+        """
+        # set training mode (not necessary but nice to read)
+        graph_encoder_ssl.encoder.train()
+        optimizer = torch.optim.Adam(graph_encoder_ssl.encoder.parameters(), lr=self.lr)
+
+        for _ in graph_encoder_ssl.ssl.train(graph_encoder_ssl.encoder, dataloader, optimizer, epochs=self.epochs):
+            pass
+
+        return graph_encoder_ssl.encoder
 
 def pretrain(graph_encoder_ssl, dataloader, config):
     """ self-supervised pretraining molecule embeddings

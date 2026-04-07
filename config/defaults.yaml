@@ -3,6 +3,7 @@ datadir: /home/andyt/DProjects/Dself_sup_graph_learning/molecule_embedding_proj/
 smi_file: /home/andyt/DProjects/Dself_sup_graph_learning/molecule_embedding_proj/data/raw/hydros_minimal.smi
 affins_csv: /home/andyt/DProjects/Dself_sup_graph_learning/molecule_embedding_proj/data/raw/vinardo_affins.csv
 
+run_name: test # determines output names
 objective: rmse
 
 encoder:
@@ -31,13 +32,13 @@ regression_head:
 pretrain:
   batch_size: 128
   num_workers: 4
-  epochs: 50
+  epochs: 2
   lr: 1e-4
 
 finetune:
   freeze_encoder: False
   batch_size: 128
-  epochs: 50
+  epochs: 2
   lr: 1e-3
 
 tuning:
