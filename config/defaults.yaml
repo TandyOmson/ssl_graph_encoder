@@ -39,3 +39,20 @@ finetune:
   batch_size: 128
   epochs: 50
   lr: 1e-3
+
+tuning:
+  run_tuning: False
+  n_trials: 5
+  
+  search_space:
+    - name: finetune.lr
+      type: float
+      low: 1e-5
+      high: 1e-2
+      log: True
+      
+    - name: regression_head.dropout
+      type: float
+      low: 0.0
+      high: 0.4
+      

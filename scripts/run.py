@@ -15,11 +15,13 @@ import pprint
 
 import torch
 from torch_geometric.loader import DataLoader
+import optuna
 
 from src.utils.data_preprocessing import smi_to_mol, mol_to_graph, MoleculeDataset, split_dataset
 from src.utils.evaluate_embeddings import supervised_embedding_eval, unsupervised_embedding_eval, evaluate_full_model, encoder_embeddings_out
 from src.training.pretrain import create_pretrain_encoder, pretrain
 from src.training.finetune import create_finetune_model, finetune
+from src.utils.tuning_helpers import apply_search_space
 
 class Objective:
     """ Manual process development for graph model
@@ -78,10 +80,9 @@ class Objective:
         config = copy.deepcopy(self.base_config)
 
         if trial is not None:
-            # optuna trial logic: NEED TO REPLACE THIS WITH HYPERPARAMETER CONFIG HELPER FUNCTIONS AND PUT A TUNING SECTION IN CONFIG
-            config["pretrain"]["lr"] = trial.suggest_float("lr", 1e-4, 1e-2, log=True)
-            config["finetune"]["lr"] = trial.suggest_float("lr", 1e-4, 1e-2, log=True)
-
+            search_space = config.get("tuning", {}).get("search_space", {})
+            config = apply_search_space(config, trial, search_space)
+            
         return config
     
     # Essential methods for call
@@ -160,10 +161,12 @@ if __name__ == "__main__":
         config = yaml.safe_load(f)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    objective = Objective(config, device, base_name="baseline_nn")
-    score = objective()
-    log.info(f"DONE. Metric: {score:.4f}")
+    if not config["tuning"]["run_tuning"]:
+        objective = Objective(config, device, base_name="baseline_nn")
+        score = objective()
+        log.info(f"DONE. Metric: {score:.4f}")
 
-    # using optuna for hyperparameter tuning NEED TO TURN OFF SAVING FILES
-    # study  = optuna.create_study(direction="minimize")
-    # study.optimize(Objective(dataset, config, device), n_trials=50)
+    # hyperparameter tuning
+    else:
+        study  = optuna.create_study(direction="minimize")
+        study.optimize(Objective(config, device), n_trials=config["tuning"]["n_trials"])
