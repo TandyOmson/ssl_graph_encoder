@@ -37,32 +37,21 @@ class PretrainTrainer:
     """ Trainer for self-supervised pretraining molecule embeddings
     """
 
-    def __init__(self, lr, epochs):
-        self.lr = float(lr)
-        self.epochs = int(epochs)
+    def __init__(self, config):
+        self.epochs = config["pretrain"]["epochs"]
+
+        optim_cfg = config["pretrain"]["optimizer"]
+        self.optim_class = load_class(optim_cfg["class_path"])
+        self.optim_kwargs = optim_cfg.get("kwargs", {})
 
     def fit(self, graph_encoder_ssl, dataloader):
         """ Train encoder in-place
         """
         # set training mode (not necessary but nice to read)
         graph_encoder_ssl.encoder.train()
-        optimizer = torch.optim.Adam(graph_encoder_ssl.encoder.parameters(), lr=self.lr)
+        optimizer = self.optim_class(graph_encoder_ssl.encoder.parameters(), **self.optim_kwargs)
 
         for _ in graph_encoder_ssl.ssl.train(graph_encoder_ssl.encoder, dataloader, optimizer, epochs=self.epochs):
             pass
 
         return graph_encoder_ssl.encoder
-
-def pretrain(graph_encoder_ssl, dataloader, config):
-    """ self-supervised pretraining molecule embeddings
-    """
-
-    optimizer = torch.optim.Adam(graph_encoder_ssl.encoder.parameters(), lr=float(config["pretrain"]["lr"]))
-    
-    graph_encoder_ssl.encoder.train()
-    log.info("Start pretraining...")
-
-    for enc in graph_encoder_ssl.ssl.train(graph_encoder_ssl.encoder, dataloader, optimizer, epochs=config["pretrain"]["epochs"]):
-        pass
-
-    return graph_encoder_ssl.encoder

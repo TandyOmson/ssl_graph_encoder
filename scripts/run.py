@@ -124,7 +124,7 @@ class Objective:
         return
 
     def run_pretrain(self, config):
-        pretrain_trainer = PretrainTrainer(lr=config["pretrain"]["lr"], epochs=config["pretrain"]["epochs"])
+        pretrain_trainer = PretrainTrainer(config)
         self.encoder = pretrain_trainer.fit(self.graph_encoder_ssl, self.dataloader)
         return
     
@@ -134,7 +134,7 @@ class Objective:
         return
     
     def run_finetune(self, config):
-        finetune_trainer = FinetuneTrainer(lr=config["finetune"]["lr"], epochs=config["finetune"]["epochs"])
+        finetune_trainer = FinetuneTrainer(config)
         self.model, self.encoder = finetune_trainer.fit(self.model, self.train_loader, self.val_loader)
         return
     

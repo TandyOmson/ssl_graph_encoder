@@ -56,22 +56,25 @@ def build_finetune_model(encoder, config):
 class FinetuneTrainer:
     """ Trainer for supervised fine-tuning encoder + regression head model 
     """
-    def __init__(
-        self,
-        lr,
-        epochs,
-    ):
-        self.lr = float(lr)
-        self.epochs = int(epochs)
+    def __init__(self, config):
+        self.epochs = config["finetune"]["epochs"]
+
+        optim_cfg = config["finetune"]["optimizer"]
+        self.optim_class  = load_class(optim_cfg["class_path"])
+        self.optim_kwargs = optim_cfg.get("kwargs", {})
+
+        crit_cfg = config["finetune"]["criterion"]
+        self.crit_class = load_class(crit_cfg["class_path"])
+        self.crit_kwargs = crit_cfg.get("kwargs", {})
 
     def fit(self, model, train_loader, val_loader):
         """ Train model in-place
         """
-        optimizer = optim.Adam(
+        optimizer = self.optim_class(
             filter(lambda p: p.requires_grad, model.parameters()), 
-            lr=self.lr
+            **self.optim_kwargs
         )
-        criterion = nn.MSELoss()
+        criterion = self.crit_class(**self.crit_kwargs)
 
         for epoch in range(self.epochs):
             model.train()

@@ -27,29 +27,37 @@ regression_head:
   activation: relu
   use_layernorm: True
 
-# may need to add options for optimizer and loss function (in finetune) later
-# currently these are defined within pretrain and finetune
 pretrain:
   batch_size: 128
   num_workers: 4
   epochs: 2
-  lr: 1e-4
+  optimizer:
+    class_path: torch.optim.Adam
+    kwargs:
+      lr: 1.0e-4
 
 finetune:
   freeze_encoder: False
   batch_size: 128
   epochs: 2
-  lr: 1e-3
+  optimizer:
+    class_path: torch.optim.AdamW
+    kwargs:
+      lr: 1.0e-3
+      weight_decay: 1.0e-4
+  criterion:
+    class_path: torch.nn.MSELoss
+    kwargs: {}
 
 tuning:
   run_tuning: False
   n_trials: 5
   
   search_space:
-    - name: finetune.lr
+    - name: finetune.optimizer.kwargs.lr
       type: float
-      low: 1e-5
-      high: 1e-2
+      low: 1.0e-5
+      high: 1.0e-2
       log: True
       
     - name: regression_head.dropout
