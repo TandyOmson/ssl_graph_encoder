@@ -106,7 +106,7 @@ def evaluate_full_model(model, val_loader):
     r2 = r2_score(all_labels, all_preds)
     return rmse, r2
 
-def encoder_embeddings_out(trained_encoder, dataloader, outfile=None):
+def encoder_embeddings_out(trained_encoder, dataloader):
     """ Extract embeddings from the trained encoder, save them as npy 
     """
     trained_encoder.eval()
@@ -122,6 +122,5 @@ def encoder_embeddings_out(trained_encoder, dataloader, outfile=None):
     labels = torch.cat(labels)
     embeddings_np = embeddings.cpu().numpy()
     labels_np = labels.cpu().numpy()
-    if outfile:
-        np.savez(outfile, embeddings=embeddings_np, labels=labels_np)
+
     return embeddings_np, labels_np

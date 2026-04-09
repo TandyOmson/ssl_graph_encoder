@@ -9,8 +9,10 @@ sys.path.append(str(Path(__file__).resolve().parents[1] / "src"))
 import argparse
 import logging
 import yaml
+import json
 import copy
 import pandas as pd
+import numpy as np
 import pprint
 
 import torch
@@ -21,7 +23,8 @@ from src.utils.data_preprocessing import smi_to_mol, mol_to_graph, MoleculeDatas
 from src.utils.evaluate_embeddings import supervised_embedding_eval, unsupervised_embedding_eval, evaluate_full_model, encoder_embeddings_out
 from src.training.pretrain import build_pretrain_encoder, PretrainTrainer
 from src.training.finetune import build_finetune_model, FinetuneTrainer
-from src.utils.tuning_helpers import apply_search_space
+from src.utils.tuning_helpers import apply_search_space, BestTrialCallback
+from src.utils.model_io import save_pretrained_encoder, save_full_model
 
 class Objective:
     """ Manual process development for graph model
@@ -40,37 +43,72 @@ class Objective:
         self.device = device
         self.base_name = base_name
 
-        # Runtime state
-        self.splitter = None
-        self.encoder = None # acts as reference to self.graph_encoder_ssl.encoder
-        self.graph_encoder_ssl = None
-        self.model = None
-
     def __call__(self, trial=None):
         """ Evaluates a model
         """
+        # base config to outdir/config.yaml
+        with open(self.base_config["outdir"] / "config.yaml", "w") as fw:
+            yaml.dump(self.base_config, fw, sort_keys=False)
+        
         config = self.make_config(trial)
 
         self.prepare_data(config)
 
+        results = {}
+
         if config["pretrain"]:
             self.build_graph_encoder_ssl(config)
             self.run_pretrain(config)
-            if self.base_name:
-                embeddings, labelsout = encoder_embeddings_out(self.encoder, self.dataloader, outfile=f"{config['datadir']}/processed/{self.base_name}_pretrained.npz")
+            embeddings, labelsout = encoder_embeddings_out(self.encoder, self.dataloader)
             pretrain_encoder_stats = self.evaluate_encoder(embeddings, labelsout)
-            pprint.pprint(pretrain_encoder_stats, width=1)
+            metrics = pretrain_encoder_stats # only relevant if not finetuning
 
-        self.build_model(config)
-        self.run_finetune(config)
-        if self.base_name:
-            embeddings, labelsout = encoder_embeddings_out(self.encoder, self.dataloader, outfile=f"{config['datadir']}/processed/{self.base_name}_finetuned.npz")
-        finetune_encoder_stats = self.evaluate_encoder(embeddings, labelsout)
-        pprint.pprint(finetune_encoder_stats)
+            # I/O
+            np.savez(f"{config['datadir']}/processed/{self.base_name}_pretrained.npz",
+                     embeddings=embeddings, 
+                     labels=labelsout
+                     )
+            results["pretrain"] = metrics
+            log.debug(pprint.pformat(pretrain_encoder_stats, width=1))
+            save_pretrained_encoder(f"{config['datadir']}/models/{self.base_name}_pretrained_encoder.pt",
+                                    self.encoder,
+                                    config,
+                                    extra={"ridge_rmse":results["pretrain"]["ridge_rmse"]},
+                                    )
 
-        metrics = self.evaluate_model()
+        if config["finetune"]:
+            self.build_model(config)
+            self.run_finetune(config)
+            embeddings, labelsout = encoder_embeddings_out(self.encoder, self.dataloader)
+            finetune_encoder_stats = self.evaluate_encoder(embeddings, labelsout)
+            
+            # I/O
+            np.savez(f"{config['datadir']}/processed/{self.base_name}_finetuned.npz",
+                     embeddings=embeddings, 
+                     labels=labelsout
+                     )
+            results["finetune"] = metrics
+            log.debug(pprint.pformat(finetune_encoder_stats, width=1))
+            metrics = self.evaluate_model()
+            save_full_model(f"{config['datadir']}/models/{self.base_name}_model.pt",
+                            self.model.encoder,
+                            self.model.reg_head,
+                            config,
+                            extra={"rmse":metrics[config["objective"]]}
+                            )
         
-        # negative?
+        # if hyperparameter trial, output trial score and params to .csv
+        if trial is not None:
+            with open(config["outdir"] / "tuning.csv", "a") as fa:
+                csvline = f"\n{trial.number},{metrics[config['objective']]}"
+                for v in trial.params.values():
+                    csvline += f",{v}"
+                fa.write(csvline)
+        
+        results["score"] = metrics[config["objective"]]
+        with open(config["outdir"] / "result.json", "w") as fw:
+            json.dump(results, fw)
+
         return metrics[config["objective"]]
     
     def make_config(self, trial):
@@ -113,7 +151,8 @@ class Objective:
         return 
     
     def build_graph_encoder_ssl(self, config):
-        feat_dim = self.dataloader.dataset[0].x.shape[1]
+        feat_dim = self.dataloader.dataset[0].x.size(-1)
+        config["feat_dim"] = feat_dim
         embed_dim = config["encoder"]["embed_dim"]
         self.graph_encoder_ssl = build_pretrain_encoder(feat_dim, embed_dim, config)
         return
@@ -148,7 +187,6 @@ class Objective:
 def setup_logging(log_dir):
     """ configure logging
     """
-    log_dir = Path(log_dir)
     log_dir.mkdir(parents=False, exist_ok=True)
 
     log = logging.getLogger()
@@ -176,6 +214,7 @@ def setup_logging(log_dir):
     detail_handler.setLevel(logging.DEBUG)
     detail_handler.setFormatter(formatter)
     log.addHandler(detail_handler)
+    return
 
 log = logging.getLogger(__name__)
 
@@ -186,6 +225,12 @@ if __name__ == "__main__":
 
     with open(args.config, "r") as f:
         config = yaml.safe_load(f)
+
+    # Set paths for input and output
+    config["smi_file"] = Path(config["smi_file"])
+    config["affins_csv"] = Path(config["affins_csv"])
+    config["outdir"] = Path(config["outdir"])
+    config["datadir"] = Path(config["datadir"])
 
     setup_logging(config["outdir"])
 
@@ -202,11 +247,20 @@ if __name__ == "__main__":
 
     # single baseline run
     if not config.get("tuning", None).get("run_tuning", None):
+        config.pop("tuning")
         objective = Objective(config, device, base_name=config["run_name"])
         score = objective()
         log.info(f"DONE. Metric: {score:.4f}")
 
     # hyperparameter tuning run (set tuning in config)
     else:
+        # create .csv for score, tuning parameters
+        with open(config["outdir"] / "tuning.csv", "w") as fw:
+            headerline = "trial,score"
+            for param in config["tuning"]["search_space"]:
+                headerline += f",{param['name']}"
+            fw.write(headerline)
+        
+        best_trial_cb = BestTrialCallback(config)
         study  = optuna.create_study(direction="minimize")
-        study.optimize(Objective(config, device), n_trials=config["tuning"]["n_trials"])
+        study.optimize(Objective(config, device, base_name=config["run_name"]), n_trials=config["tuning"]["n_trials"])

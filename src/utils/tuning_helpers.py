@@ -2,7 +2,7 @@
     Currently just config reading with pyaml
 """
 
-import copy
+import optuna
 
 def set_tuning_param_by_path(config, path, suggestion):
     """ Set config['a']['b']['c'] given "name" field 'a.b.c'  
@@ -40,3 +40,27 @@ def apply_search_space(config, trial, search_space):
         suggestion = suggest_tuning_param_from_config(trial, spec)
         set_tuning_param_by_path(config, spec["name"], suggestion)
     return config
+
+class BestTrialCallback:
+    """ Stateful callback for monitoring if this trial is the best one
+        Standard I/O operations are always called, just add best to filenames if best model
+    """
+    def __init__(self, config):
+        # best seen trial number
+        self.best_seen = {"number"}
+        # need config for I/O information
+        self.config = config
+
+
+    # Types encfored by optuna.study.optimize(callbacks=[])
+    def __call__(self, study: optuna.study.Study, trial: optuna.trial.FrozenTrial) -> bool:
+        if study.best_trial.number == trial.number and self.best_seen["number"] != trial.number:
+            self.best_seen["number"] = trial.number
+            # If True, promote trial to best by changing filenames from I/O to _best_{trial.number}.
+            # result.json
+            # data/processed/{base_name}_pretrained.npz
+            # data/processed/{base_name}_finetuned.npz
+            # data/models/{base_name}.hdf5
+            return 
+        else:
+            return 
