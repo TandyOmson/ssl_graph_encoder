@@ -109,7 +109,7 @@ class Objective:
         with open(config["outdir"] / "result.json", "w") as fw:
             json.dump(results, fw)
 
-        log.info(f"DONE. Metric: {results["score"]:.4f}")
+        log.info(f"DONE. Metric: {results['score']:.4f}")
 
         return metrics[config["objective"]]
     
