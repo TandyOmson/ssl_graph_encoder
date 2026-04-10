@@ -4,7 +4,8 @@ data/processed/*
 !data/processed/.gitkeep
 notebooks/*
 !notebooks/.gitkeep
-logs/
+logs/*
+!logs/.gitkeep
 __pycache__/
 .vscode/
 *./py[codz]
