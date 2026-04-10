@@ -1,0 +1,8 @@
+name: graph_NNs
+channels:
+  - conda-forge
+  - https://repo.anaconda.com/pkgs/main
+  - https://repo.anaconda.com/pkgs/r
+dependencies:
+  - python=3.11
+prefix: /home/andyt/miniconda3/envs/graph_NNs

@@ -1,6 +1,10 @@
 """
 Encoder for molecule embeddings (may make this class based later)
 GNN from Dig (Dive into Graphs)
+encoder GNN choices:
+- gcn (graph convolutional network)
+- gin (graph isomorphic network)
+- resgcn (GCN with residual based attention mechanism)
 """
 from dig.sslgraph.utils import Encoder
 

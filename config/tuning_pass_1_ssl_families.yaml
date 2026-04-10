@@ -1,0 +1,62 @@
+# TUNING PASS 1: Start with reasonable defaults and run different encoder gnn and self_sup_nn, and loss associated with self_sup_nn
+smi_file: data/raw/hydros_minimal.smi
+affins_csv: data/raw/vinardo_affins.csv
+
+outdir: logs/tuning_1 # basic results, logging
+datadir: data  # processed data, checkpoints, models
+
+run_name: tuning_1 # determines output names
+objective: rmse
+device: cpu # cuda or cpu, default cpu
+
+encoder:
+  class_path: src.models.encoders.encoder.Encoder
+  embed_dim: 256
+  num_layers: 5
+  gnn: resgcn
+
+ssl_nn:
+  class_path: src.models.ssl.self_sup_nn.GraphCL
+
+regression_head:
+  class_path: src.models.reg_heads.regression_head.RegressionHead
+  hidden_dim : 256
+  num_layers: 3
+  dropout: 0.1
+  activation: relu
+  use_layernorm: True
+
+pretrain:
+  batch_size: 128
+  num_workers: 4
+  epochs: 100
+  optimizer:
+    class_path: torch.optim.Adam
+    kwargs:
+      lr: 1.0e-4
+
+finetune:
+  freeze_encoder: False
+  batch_size: 128
+  epochs: 100
+  optimizer:
+    class_path: torch.optim.AdamW
+    kwargs:
+      lr: 1.0e-3
+      weight_decay: 1.0e-4
+  criterion:
+    class_path: torch.nn.MSELoss
+    kwargs: {}
+
+tuning:
+  run_tuning: True
+  n_trials: 20
+  
+  search_space:
+    - name: encoder.gnn
+      type: categorical
+      choices: [gcn, gin, resgcn]
+
+    - name: ssl_nn.class_path
+      type: categorical
+      choices: [dig.sslgraph.method.GraphCL, dig.sslgraph.method.GRACE, dig.sslgraph.method.InfoGraph, dig.sslgraph.method.MVGRL]

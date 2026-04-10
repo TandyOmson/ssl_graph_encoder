@@ -1,6 +1,11 @@
 """
-NN for self supervised pretraining of molecule embeddings
-graphCL: from dig (dive into graphs)
+NN for self supervised pretraining of molecule embeddings (contains train(), behaves like criterion from pytorch)
+from dig (dive into graphs):
+graphCL
+GRACE
+InfoGraph
+MVGRL
+Can also choose from JSE_loss and NCE_loss objectives, depending on the NN
 """
 
 import torch.nn as nn
@@ -46,7 +51,6 @@ class GraphCL(Contrastive):
                                       views_fn=views_fn,
                                       z_dim=dim,
                                       proj='MLP', # irrelevant, removed after pretraining
-                                      node_level=False,
                                       )
 
     def train(self, encoders, data_loader, optimizer, epochs, per_epoch_out=False):
