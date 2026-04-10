@@ -46,8 +46,8 @@ class Objective:
     def __call__(self, trial=None):
         """ Evaluates a model
         """
-        # base config to outdir/config.yaml
-        with open(self.base_config["outdir"] / "config.yaml", "w") as fw:
+        # base config to outdir/base_config.yaml
+        with open(self.base_config["outdir"] / "base_config.yaml", "w") as fw:
             yaml.dump(self.base_config, fw, sort_keys=False)
         
         config = self.make_config(trial)
@@ -69,7 +69,7 @@ class Objective:
                      labels=labelsout
                      )
             results["pretrain"] = metrics
-            log.debug(pprint.pformat(pretrain_encoder_stats, width=1))
+            log.debug("\n" + pprint.pformat(pretrain_encoder_stats, width=1))
             save_pretrained_encoder(f"{config['datadir']}/models/{self.base_name}_pretrained_encoder.pt",
                                     self.encoder,
                                     config,
@@ -88,7 +88,7 @@ class Objective:
                      labels=labelsout
                      )
             results["finetune"] = metrics
-            log.debug(pprint.pformat(finetune_encoder_stats, width=1))
+            log.debug("\n" + pprint.pformat(finetune_encoder_stats, width=1))
             metrics = self.evaluate_model()
             save_full_model(f"{config['datadir']}/models/{self.base_name}_model.pt",
                             self.model.encoder,
@@ -109,6 +109,8 @@ class Objective:
         with open(config["outdir"] / "result.json", "w") as fw:
             json.dump(results, fw)
 
+        log.info(f"DONE. Metric: {results["score"]:.4f}")
+
         return metrics[config["objective"]]
     
     def make_config(self, trial):
@@ -117,6 +119,10 @@ class Objective:
         if trial is not None:
             search_space = config.get("tuning", {}).get("search_space", {})
             config = apply_search_space(config, trial, search_space)
+            log.info("Running trial " + f"{trial.number}")
+            log.debug("Hyperparameters:\n" + pprint.pformat(trial.params))
+            with open(self.base_config["outdir"] / "trial_config.yaml", "w") as fw:
+                yaml.dump(config, fw, sort_keys=False)
 
         return config
     
@@ -182,8 +188,6 @@ class Objective:
         rmse, r2 = evaluate_full_model(self.model, self.test_loader)
         return {"rmse" : rmse, "r2" : r2}
     
-    # Monitoring, logging, checkpointing, storage and metadata
-
 def setup_logging(log_dir):
     """ configure logging
     """
@@ -247,13 +251,14 @@ if __name__ == "__main__":
 
     # single baseline run
     if not config.get("tuning", None).get("run_tuning", None):
+        log.info("Hyperparameter tuning is OFF")
         config.pop("tuning")
         objective = Objective(config, device, base_name=config["run_name"])
         score = objective()
-        log.info(f"DONE. Metric: {score:.4f}")
 
     # hyperparameter tuning run (set tuning in config)
     else:
+        log.info("Hyperparameter tuning is ON")
         # create .csv for score, tuning parameters
         with open(config["outdir"] / "tuning.csv", "w") as fw:
             headerline = "trial,score"
@@ -263,4 +268,4 @@ if __name__ == "__main__":
         
         best_trial_cb = BestTrialCallback(config)
         study  = optuna.create_study(direction="minimize")
-        study.optimize(Objective(config, device, base_name=config["run_name"]), n_trials=config["tuning"]["n_trials"])
+        study.optimize(Objective(config, device, base_name=config["run_name"]), n_trials=config["tuning"]["n_trials"], callbacks=[best_trial_cb])

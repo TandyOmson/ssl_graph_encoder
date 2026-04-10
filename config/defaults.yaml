@@ -1,7 +1,9 @@
-# Default setup for NN
-datadir: /home/andyt/DProjects/Dself_sup_graph_learning/molecule_embedding_proj/data
-smi_file: /home/andyt/DProjects/Dself_sup_graph_learning/molecule_embedding_proj/data/raw/hydros_minimal.smi
-affins_csv: /home/andyt/DProjects/Dself_sup_graph_learning/molecule_embedding_proj/data/raw/vinardo_affins.csv
+# Default setup
+smi_file: data/raw/hydros_minimal.smi
+affins_csv: data/raw/vinardo_affins.csv
+
+outdir: logs/test # basic results, logging
+datadir: data  # processed data, checkpoints, models
 
 run_name: test # determines output names
 objective: rmse
@@ -31,7 +33,7 @@ regression_head:
 pretrain:
   batch_size: 128
   num_workers: 4
-  epochs: 50
+  epochs: 2
   optimizer:
     class_path: torch.optim.Adam
     kwargs:
@@ -40,7 +42,7 @@ pretrain:
 finetune:
   freeze_encoder: False
   batch_size: 128
-  epochs: 50
+  epochs: 2
   optimizer:
     class_path: torch.optim.AdamW
     kwargs:
@@ -51,8 +53,8 @@ finetune:
     kwargs: {}
 
 tuning:
-  run_tuning: False
-  n_trials: 5
+  run_tuning: True
+  n_trials: 2
   
   search_space:
     - name: finetune.optimizer.kwargs.lr
