@@ -10,16 +10,16 @@ objective: rmse
 device: cpu # cuda or cpu, default cpu
 
 encoder:
-  class_path: src.models.encoders.encoder.Encoder
+  class_path: models.encoders.encoder.Encoder
   embed_dim: 256
   num_layers: 5
   gnn: resgcn
 
 ssl_nn:
-  class_path: src.models.ssl.self_sup_nn.GraphCL
+  class_path: models.ssl.self_sup_nn.GraphCL
 
 regression_head:
-  class_path: src.models.reg_heads.regression_head.RegressionHead
+  class_path: models.reg_heads.regression_head.RegressionHead
   hidden_dim : 256
   num_layers: 3
   dropout: 0.1
