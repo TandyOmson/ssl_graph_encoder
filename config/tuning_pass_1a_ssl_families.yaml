@@ -11,7 +11,7 @@ device: cpu # cuda or cpu, default cpu
 
 encoder:
   class_path: src.models.encoders.encoder.Encoder
-  embed_dim: 64
+  embed_dim: 256
   num_layers: 5
   gnn: resgcn
 
@@ -20,7 +20,7 @@ ssl_nn:
 
 regression_head:
   class_path: src.models.reg_heads.regression_head.RegressionHead
-  hidden_dim : 64
+  hidden_dim : 256
   num_layers: 3
   dropout: 0.1
   activation: relu
@@ -50,12 +50,12 @@ finetune:
 
 tuning:
   run_tuning: True
-  n_trials: 8
+  n_trials: 4
   
   search_space:
     - name: encoder.gnn
       type: categorical
-      choices: [gcn, gin]
+      choices: [resgcn]
 
     - name: ssl_nn.class_path
       type: categorical
