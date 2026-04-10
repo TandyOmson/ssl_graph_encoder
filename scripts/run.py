@@ -17,12 +17,13 @@ import torch
 from torch_geometric.loader import DataLoader
 import optuna
 
-from src.utils.data_preprocessing import smi_to_mol, mol_to_graph, MoleculeDataset, split_dataset
-from src.utils.evaluate_embeddings import supervised_embedding_eval, unsupervised_embedding_eval, evaluate_full_model, encoder_embeddings_out
-from src.training.pretrain import build_pretrain_encoder, PretrainTrainer
-from src.training.finetune import build_finetune_model, FinetuneTrainer
-from src.utils.tuning_helpers import apply_search_space, BestTrialCallback
-from src.utils.model_io import save_pretrained_encoder, save_full_model
+# form the install sll_graph_encoder package
+from utils.data_preprocessing import smi_to_mol, mol_to_graph, MoleculeDataset, split_dataset
+from utils.evaluate_embeddings import supervised_embedding_eval, unsupervised_embedding_eval, evaluate_full_model, encoder_embeddings_out
+from training.pretrain import build_pretrain_encoder, PretrainTrainer
+from training.finetune import build_finetune_model, FinetuneTrainer
+from utils.tuning_helpers import apply_search_space, BestTrialCallback
+from utils.model_io import save_pretrained_encoder, save_full_model
 
 class Objective:
     """ Manual process development for graph model
