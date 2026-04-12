@@ -14,15 +14,16 @@ class RegressionHead(nn.Module):
     - optional normalization (useful for pretrained embeddings)
     """
 
-    def __init__(self, embed_dim, **config):
+    def __init__(self, 
+                 embed_dim,
+                 output_dim=1,
+                 hidden_dim=None,
+                 num_layers=3,
+                 dropout=0.0,
+                 activation="relu",
+                 use_layernorm=False
+                 ):
         super().__init__()
-
-        output_dim = config.get("output_dim", 1)
-        hidden_dim = config.get("hidden_dim", None)
-        num_layers = config.get("num_layers", 3)
-        dropout = config.get("dropout", 0.0)
-        activation = config.get("activation", "relu")
-        use_layernorm = config.get("use_layernorm", False)
 
         hidden_dim = hidden_dim or embed_dim
 

@@ -1,0 +1,4 @@
+have to install pytorch-scatter with:
+git clone https://github.com/rusty1s/pytorch_scatter.git
+cd pytorch_scatter
+python setup.py install

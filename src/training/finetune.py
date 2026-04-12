@@ -14,23 +14,46 @@ def load_class(class_path):
     module = importlib.import_module(module_name)
     return getattr(module, class_name)
 
+def get_all_init_params(cls):
+    """
+    Will get all parameters accepted by __init__ of a class, including those inherited from parent classes.
+    If any __init__ accepts **kwargs, return None (means: accept everything).
+    """
+    accepted = set()
+
+    for base in cls.__mro__:
+        if base is object:
+            continue
+
+        if "__init__" not in base.__dict__:
+            continue
+
+        sig = inspect.signature(base.__init__)
+
+        for name, param in sig.parameters.items():
+            if name == "self":
+                continue
+
+            # if param.kind == inspect.Parameter.VAR_KEYWORD:
+            #     # **kwargs present → no filtering should be applied
+            #     return None
+
+            if param.kind in (
+                inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                inspect.Parameter.KEYWORD_ONLY,
+            ):
+                accepted.add(name)
+
+    return accepted
+
 def filter_class_config(cls, **config):
-    sig = inspect.signature(cls.__init__)
-    params = sig.parameters
+    accepted = get_all_init_params(cls)
 
-    # Check whether __init__ accepts **kwargs
-    has_var_kw = any(
-        p.kind == inspect.Parameter.VAR_KEYWORD
-        for p in params.values()
-    )
-
-    # If it does, pass everything through
-    if has_var_kw:
+    if accepted is None:
+        # class (or one of its parents) accepts **kwargs
         return dict(config)
 
-    # Otherwise, filter strictly
-    valid_keys = set(params) - {"self"}
-    return {k: v for k, v in config.items() if k in valid_keys}
+    return {k: v for k, v in config.items() if k in accepted}
 
 class GraphRegressionModel(nn.Module):
     """ Final model class including encoder and regression head
@@ -64,7 +87,8 @@ def build_finetune_model(encoder, config):
 
     reg_headClass = load_class(config["regression_head"]["class_path"])
 
-    reg_head = reg_headClass(config["encoder"]["embed_dim"], **filter_class_config(reg_headClass, **config["regression_head"]["kwargs"]))
+    reg_args = filter_class_config(reg_headClass, **config["regression_head"]["kwargs"])
+    reg_head = reg_headClass(config["encoder"]["embed_dim"], **reg_args)
 
     return GraphRegressionModel(encoder, reg_head)
 

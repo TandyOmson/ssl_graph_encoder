@@ -11,10 +11,10 @@ from dig.sslgraph.utils import Encoder
 class digEncoder(Encoder):
     """ Dig encoder subclass for flexibility later
     """
-    def __init__(self, feat_dim, hidden_dim, **config):
+    def __init__(self, feat_dim, hidden_dim, gnn="resgcn", num_layers=5):
         super().__init__(feat_dim, 
                          hidden_dim, # this is embed_dim
-                         gnn=config.get("gnn", "resgcn"), 
-                         n_layer=config.get("num_layers", 5)
+                         gnn=gnn, 
+                         n_layer=num_layers
                          )
         # need to do other self.prop statements if extending later

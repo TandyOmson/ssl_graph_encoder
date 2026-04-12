@@ -10,7 +10,7 @@ objective: rmse
 device: cpu # cuda or cpu, default cpu
 
 encoder:
-  class_path: models.encoders.encoder.Encoder
+  class_path: models.encoders.encoder.digEncoder
   embed_dim: 64
   kwargs:
     num_layers: 5
@@ -18,8 +18,6 @@ encoder:
 ssl_nn:
   class_path: 
   kwargs:
-    dim: 64
-    objective: NCE
 
     # GraphCL
     aug1: maskN
@@ -27,16 +25,10 @@ ssl_nn:
     aug_ratio: 0.2
 
     # GRACE
-    dropE_rate_1:
-    dropE_rate_2:
-    maskN_rate_1:
-    maskN_rate_2:
-
-    # InfoGraph
-    g_dim: 320
-    n_dim: 64
-
-    # MVGRL same as InfoGRAPH
+    dropE_rate_1: 0.2
+    dropE_rate_2: 0.2
+    maskN_rate_1: 0.2
+    maskN_rate_2: 0.2
 
 regression_head:
   class_path: models.reg_heads.regression_head.RegressionHead
@@ -80,4 +72,4 @@ tuning:
 
     - name: ssl_nn.class_path
       type: categorical
-      choices: [dig.sslgraph.method.GraphCL, dig.sslgraph.method.GRACE, dig.sslgraph.method.InfoGraph, dig.sslgraph.method.MVGRL]
+      choices: [dig.sslgraph.method.GraphCL, dig.sslgraph.method.GRACE]

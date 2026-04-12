@@ -10,7 +10,7 @@ objective: rmse
 device: cpu # cuda or cpu, default cpu
 
 encoder:
-  class_path: models.encoders.encoder.Encoder
+  class_path: models.encoders.encoder.digEncoder
   embed_dim: 128
   kwargs:
     num_layers: 5
