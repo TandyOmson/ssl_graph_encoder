@@ -2,6 +2,7 @@
 """
 import logging
 import importlib
+import inspect
 
 import torch
 import torch.nn as nn
@@ -12,6 +13,24 @@ def load_class(class_path):
     module_name, class_name = class_path.rsplit(".", 1)
     module = importlib.import_module(module_name)
     return getattr(module, class_name)
+
+def filter_class_config(cls, **config):
+    sig = inspect.signature(cls.__init__)
+    params = sig.parameters
+
+    # Check whether __init__ accepts **kwargs
+    has_var_kw = any(
+        p.kind == inspect.Parameter.VAR_KEYWORD
+        for p in params.values()
+    )
+
+    # If it does, pass everything through
+    if has_var_kw:
+        return dict(config)
+
+    # Otherwise, filter strictly
+    valid_keys = set(params) - {"self"}
+    return {k: v for k, v in config.items() if k in valid_keys}
 
 class GraphRegressionModel(nn.Module):
     """ Final model class including encoder and regression head
@@ -45,7 +64,7 @@ def build_finetune_model(encoder, config):
 
     reg_headClass = load_class(config["regression_head"]["class_path"])
 
-    reg_head = reg_headClass(config["encoder"]["embed_dim"], **config["regression_head"])
+    reg_head = reg_headClass(config["encoder"]["embed_dim"], **filter_class_config(reg_headClass, **config["regression_head"]["kwargs"]))
 
     return GraphRegressionModel(encoder, reg_head)
 

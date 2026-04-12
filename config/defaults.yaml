@@ -12,23 +12,26 @@ device: cpu # cuda or cpu, default cpu
 encoder:
   class_path: models.encoders.encoder.Encoder
   embed_dim: 128
-  num_layers: 5
-  gnn: resgcn
+  kwargs:
+    num_layers: 5
+    gnn: resgcn
 
 ssl_nn:
   class_path: models.ssl.self_sup_nn.GraphCL
-  aug_1: maskN       
-  aug_2: dropN
-  aug_ratio: 0.2
-  objective: NCE
+  kwargs:
+    aug_1: maskN       
+    aug_2: dropN
+    aug_ratio: 0.2
+    objective: NCE
 
 regression_head:
   class_path: models.reg_heads.regression_head.RegressionHead
-  hidden_dim : 128
-  num_layers: 5
-  dropout: 0.1
-  activation: relu
-  use_layernorm: True
+  kwargs:
+    hidden_dim : 128
+    num_layers: 5
+    dropout: 0.1
+    activation: relu
+    use_layernorm: True
 
 pretrain:
   batch_size: 128

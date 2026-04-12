@@ -2,32 +2,53 @@
 smi_file: data/raw/hydros_minimal.smi
 affins_csv: data/raw/vinardo_affins.csv
 
-outdir: logs/tuning_1 # basic results, logging
+outdir: logs/tuning_1a # basic results, logging
 datadir: data  # processed data, checkpoints, models
 
-run_name: tuning_1 # determines output names
+run_name: tuning_1a # determines output names
 objective: rmse
 device: cpu # cuda or cpu, default cpu
 
 encoder:
   class_path: models.encoders.encoder.Encoder
   embed_dim: 256
-  num_layers: 5
-  gnn: resgcn
+  kwargs:
+    num_layers: 5
 
 ssl_nn:
-  class_path: models.ssl.self_sup_nn.GraphCL
+  class_path: 
+  kwargs:
+    dim: 256
+    objective: NCE
+
+    # GraphCL
+    aug1: maskN
+    aug2: dropN
+    aug_ratio: 0.2
+
+    # GRACE
+    dropE_rate_1:
+    dropE_rate_2:
+    maskN_rate_1:
+    maskN_rate_2:
+
+    # InfoGraph
+    g_dim: 1280
+    n_dim: 256
+
+    # MVGRL same as InfoGRAPH
 
 regression_head:
   class_path: models.reg_heads.regression_head.RegressionHead
-  hidden_dim : 256
-  num_layers: 3
-  dropout: 0.1
-  activation: relu
-  use_layernorm: True
+  kwargs:
+    hidden_dim : 256
+    num_layers: 3
+    dropout: 0.1
+    activation: relu
+    use_layernorm: True
 
 pretrain:
-  batch_size: 128
+  batch_size: 64
   num_workers: 4
   epochs: 100
   optimizer:
@@ -37,7 +58,7 @@ pretrain:
 
 finetune:
   freeze_encoder: False
-  batch_size: 128
+  batch_size: 64
   epochs: 100
   optimizer:
     class_path: torch.optim.AdamW
