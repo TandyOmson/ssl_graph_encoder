@@ -244,9 +244,11 @@ if __name__ == "__main__":
         else:
             log.warning("cuda selected, put not available, defaulting to cpu")
             device = torch.device("cpu")
+            torch.cuda.is_available = lambda: False
     else:
         device = torch.device("cpu")
         log.info("device is cpu")
+        torch.cuda.is_available = lambda: False
 
     # single baseline run
     if not config.get("tuning", None).get("run_tuning", None):
