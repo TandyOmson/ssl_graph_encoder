@@ -93,6 +93,6 @@ class LogDistributionsOnce:
     def __call__(self, study: optuna.study.Study, trial: optuna.trial.FrozenTrial):
         if self.logged:
             return
-        
+    
         log.info(f"search space:\n" + pprint.pformat(study.trials[0].distributions))
         self.logged = True
