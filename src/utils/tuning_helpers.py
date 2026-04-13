@@ -2,6 +2,7 @@
     Currently just config reading with pyaml
 """
 
+import numbers
 from pathlib import Path
 import optuna
 import pprint
@@ -96,3 +97,29 @@ class LogDistributionsOnce:
     
         log.info(f"search space:\n" + pprint.pformat(study.trials[0].distributions))
         self.logged = True
+
+def log_trial_metrics_and_params(csv_path, trial_number, score, metrics, params, metric_prefix="metric_", float_fmt=".4f"):
+    """ log all information from trial in a csv, write a header if the file doesnt exist or is empty
+    """
+    row = {"trial": trial_number, "score": score}
+    for k, v in metrics.items():
+        row[f"{metric_prefix}{k}"] = v
+    for k, v in params.items():
+        row[str(k)] = v
+
+    def fmt(v):
+        if isinstance(v, int):
+            return str(v)
+        elif isinstance(v, float):
+            return f"{v:{float_fmt}}"
+        else:
+            return str(v)
+
+    needs_header = (not csv_path.exists())
+
+    if needs_header:
+        with csv_path.open("w") as fw:
+            fw.write(",".join(row.keys()) + "\n")
+
+    with csv_path.open("a") as fa:
+        fa.write(",".join([fmt(v) for v in row.values()]) + "\n")

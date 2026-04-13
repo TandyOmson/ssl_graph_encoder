@@ -22,7 +22,7 @@ from utils.data_preprocessing import smi_to_mol, mol_to_graph, MoleculeDataset, 
 from utils.evaluate_embeddings import supervised_embedding_eval, unsupervised_embedding_eval, evaluate_full_model, encoder_embeddings_out
 from training.pretrain import build_pretrain_encoder, PretrainTrainer
 from training.finetune import build_finetune_model, FinetuneTrainer
-from utils.tuning_helpers import apply_search_space, BestTrialCallback, LogDistributionsOnce
+from utils.tuning_helpers import apply_search_space, BestTrialCallback, LogDistributionsOnce, log_trial_metrics_and_params
 from utils.model_io import save_pretrained_encoder, save_full_model
 
 class Objective:
@@ -96,13 +96,18 @@ class Objective:
                             extra={"rmse":metrics[config["objective"]]}
                             )
         
-        # if hyperparameter trial, output trial score and params to .csv
+        # if hyperparameter trial, output trial score, other metrics and params to .csv
         if trial is not None:
-            with open(config["outdir"] / "tuning.csv", "a") as fa:
-                csvline = f"\n{trial.number},{metrics[config['objective']]}"
-                for v in trial.params.values():
-                    csvline += f",{v}"
-                fa.write(csvline)
+            pretrain_encoder_stats = {f"pretrain_{k}": v for k, v in pretrain_encoder_stats.items()}
+            finetune_encoder_stats = {f"finetune_{k}": v for k, v in finetune_encoder_stats.items()}
+            all_metrics = {**pretrain_encoder_stats, **finetune_encoder_stats}
+
+            log_trial_metrics_and_params(config["outdir"] / "tuning.csv", 
+                                         trial.number, 
+                                         metrics[config["objective"]], 
+                                         all_metrics, 
+                                         trial.params
+                                         )
         
         results["score"] = metrics[config["objective"]]
         with open(config["outdir"] / "result.json", "w") as fw:
@@ -190,10 +195,13 @@ class Objective:
 def setup_logging(log_dir):
     """ configure logging
     """
-    log_dir.mkdir(parents=False, exist_ok=True)
-
     log = logging.getLogger()
     log.setLevel(logging.DEBUG)
+    
+    try:
+        log_dir.mkdir(parents=False, exist_ok=False)
+    except FileExistsError:
+        raise Exception(f"Log directory {log_dir} already exists. Exiting...")
 
     formatter = logging.Formatter(
         fmt="%(asctime)s | %(name)s | %(levelname)s | %(message)s",
@@ -260,12 +268,6 @@ if __name__ == "__main__":
     # hyperparameter tuning run (set tuning in config)
     else:
         log.info("Hyperparameter tuning is ON")
-        # create .csv for score, tuning parameters
-        with open(config["outdir"] / "tuning.csv", "w") as fw:
-            headerline = "trial,score"
-            for param in config["tuning"]["search_space"]:
-                headerline += f",{param['name']}"
-            fw.write(headerline)
         
         # optuna callbacks
         best_trial_cb = BestTrialCallback(config) # changes files to best (otherwise trials overwrite standard I/O)
