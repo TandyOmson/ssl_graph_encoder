@@ -68,7 +68,7 @@ class Objective:
                      labels=labelsout
                      )
             results["pretrain"] = metrics
-            log.debug("\n" + pprint.pformat(pretrain_encoder_stats, width=1))
+            log.debug("PRETRAIN EMBEDDING STATS:\n" + pprint.pformat(pretrain_encoder_stats, width=1))
             save_pretrained_encoder(f"{config['datadir']}/models/{self.base_name}_pretrained_encoder.pt",
                                     self.encoder,
                                     config,
@@ -87,7 +87,7 @@ class Objective:
                      labels=labelsout
                      )
             results["finetune"] = metrics
-            log.debug("\n" + pprint.pformat(finetune_encoder_stats, width=1))
+            log.debug("FINETUNE EMBEDDING STATS:\n" + pprint.pformat(finetune_encoder_stats, width=1))
             metrics = self.evaluate_model()
             save_full_model(f"{config['datadir']}/models/{self.base_name}_model.pt",
                             self.model.encoder,
