@@ -22,7 +22,7 @@ from utils.data_preprocessing import smi_to_mol, mol_to_graph, MoleculeDataset, 
 from utils.evaluate_embeddings import supervised_embedding_eval, unsupervised_embedding_eval, evaluate_full_model, encoder_embeddings_out
 from training.pretrain import build_pretrain_encoder, PretrainTrainer
 from training.finetune import build_finetune_model, FinetuneTrainer
-from utils.tuning_helpers import apply_search_space, BestTrialCallback
+from utils.tuning_helpers import apply_search_space, BestTrialCallback, LogDistributionsOnce
 from utils.model_io import save_pretrained_encoder, save_full_model
 
 class Objective:
@@ -108,7 +108,7 @@ class Objective:
         with open(config["outdir"] / "result.json", "w") as fw:
             json.dump(results, fw)
 
-        log.info(f"DONE. Metric: {results['score']:.4f}")
+        log.info(f"DONE. Metric: {results['score']:.4f}\n")
 
         return metrics[config["objective"]]
     
@@ -119,7 +119,7 @@ class Objective:
             search_space = config.get("tuning", {}).get("search_space", {})
             config = apply_search_space(config, trial, search_space)
             log.info("Running trial " + f"{trial.number}")
-            log.debug("Hyperparameters:\n" + pprint.pformat(trial.params))
+            log.info("Hyperparameters:\n" + pprint.pformat(trial.params))
             with open(self.base_config["outdir"] / "trial_config.yaml", "w") as fw:
                 yaml.dump(config, fw, sort_keys=False)
 
@@ -267,6 +267,16 @@ if __name__ == "__main__":
                 headerline += f",{param['name']}"
             fw.write(headerline)
         
-        best_trial_cb = BestTrialCallback(config)
+        # optuna callbacks
+        best_trial_cb = BestTrialCallback(config) # changes files to best (otherwise trials overwrite standard I/O)
+        log_dist_cb = LogDistributionsOnce() # writes the parameter distributions (search space) to log.info after first trial 
+
         study  = optuna.create_study(direction="minimize")
-        study.optimize(Objective(config, device, base_name=config["run_name"]), n_trials=config["tuning"]["n_trials"], callbacks=[best_trial_cb])
+        study.optimize(Objective(config, device, base_name=config["run_name"]), 
+                       n_trials=config["tuning"]["n_trials"], 
+                       callbacks=[best_trial_cb, log_dist_cb]
+                       )
+
+        log.info(f"Tuning complete. Best trial: {study.best_trial.number}")
+        log.info(f"Best trial params: {study.best_trial.params}")
+        log.info(f"Best trial value: {study.best_trial.value}")

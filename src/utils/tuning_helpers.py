@@ -4,6 +4,7 @@
 
 from pathlib import Path
 import optuna
+import pprint
 
 def set_tuning_param_by_path(config, path, suggestion):
     """ Set config['a']['b']['c'] given "name" field 'a.b.c'  
@@ -82,3 +83,16 @@ class BestTrialCallback:
             return 
         else:
             return 
+        
+class LogDistributionsOnce:
+    """ Write tuning param disributions (search space) to log.info after the first trial is complete
+    """
+    def __init__(self):
+        self.logged = False
+
+    def __call__(self, study: optuna.study.Study, trial: optuna.trial.FrozenTrial):
+        if self.logged:
+            return
+        
+        log.info(f"search space:\n" + pprint.pformat(study.trials[0].distributions))
+        self.logged = True
