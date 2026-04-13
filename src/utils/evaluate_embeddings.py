@@ -8,7 +8,7 @@ from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.neighbors import KNeighborsRegressor, NearestNeighbors
 from sklearn.model_selection import train_test_split
 from scipy.stats import spearmanr
-from scipy.spatial.distance import pdist, squareform
+from scipy.spatial.distance import pdist
 import numpy as np
 
 def local_spearman(embeddings, labels, k=100):

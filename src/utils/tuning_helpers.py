@@ -2,7 +2,6 @@
     Currently just config reading with pyaml
 """
 
-import numbers
 from pathlib import Path
 import optuna
 import pprint

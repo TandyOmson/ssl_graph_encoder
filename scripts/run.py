@@ -196,7 +196,7 @@ def setup_logging(log_dir):
     """ configure logging
     """
     log = logging.getLogger()
-    log.setLevel(logging.DEBUG)
+    log.setLevel(logging.INFO)
     
     try:
         log_dir.mkdir(parents=False, exist_ok=False)
