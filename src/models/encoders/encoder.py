@@ -15,6 +15,6 @@ class digEncoder(Encoder):
         super().__init__(feat_dim, 
                          hidden_dim, # this is embed_dim
                          gnn=gnn, 
-                         n_layer=num_layers
+                         n_layers=num_layers
                          )
         # need to do other self.prop statements if extending later
