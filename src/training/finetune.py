@@ -53,6 +53,7 @@ class FinetuneTrainer:
     def __init__(self, device, config):
         self.epochs = config["finetune"]["epochs"]
         self.device = device
+        # might just make this self.callback_cfg so I can have callback options in the yaml, hardcoding for now
         self.use_callbacks = config.get("tuning", {}).get("run_tuning", False)
 
         optim_cfg = config["finetune"]["optimizer"]
@@ -64,7 +65,7 @@ class FinetuneTrainer:
         self.crit_kwargs = crit_cfg.get("kwargs", {})
 
     def fit(self, model, train_loader, val_loader):
-        """ Train model in-place
+        """ Construct optimizer and criterion from config, train model in-place
         """
         optimizer = self.optim_class(
             filter(lambda p: p.requires_grad, model.parameters()), 
@@ -78,6 +79,7 @@ class FinetuneTrainer:
             ReportMetricsCallback(every_n_epochs=5, keys=["val_loss"], logger=log)
         ]   
 
+        # separate a train() function in the model class with "yield model, metrics" if this gets to messy
         model = model.to(self.device)
         with trange(self.epochs) as t:
             for epoch in t:

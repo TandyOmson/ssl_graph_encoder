@@ -25,7 +25,7 @@ def build_pretrain_encoder(feat_dim, embed_dim, config):
     enc_args = filter_class_config(encoderClass, **config["encoder"]["kwargs"])
     encoder = encoderClass(feat_dim, embed_dim, **enc_args)
     ssl_args = filter_class_config(sslClass, **config["ssl_nn"]["kwargs"])
-    ssl = sslClass(embed_dim, **ssl_args)
+    ssl = sslClass(encoder.output_dim, **ssl_args)
 
     return GraphEncoder(encoder, ssl)
 
@@ -42,7 +42,7 @@ class PretrainTrainer:
         self.optim_kwargs = optim_cfg.get("kwargs", {})
 
     def fit(self, graph_encoder_ssl, dataloader):
-        """ Train encoder in-place
+        """ Construct optimizer from config, train encoder in-place
         """
         graph_encoder_ssl.encoder = graph_encoder_ssl.encoder.to(self.device)
         graph_encoder_ssl.ssl = graph_encoder_ssl.ssl.to(self.device)

@@ -17,4 +17,7 @@ class digEncoder(Encoder):
                          gnn=gnn, 
                          n_layers=num_layers
                          )
-        # need to do other self.prop statements if extending later
+        if gnn == "gcn" or gnn == "gin":
+            self.output_dim = hidden_dim * num_layers
+        else:
+            self.output_dim = hidden_dim
