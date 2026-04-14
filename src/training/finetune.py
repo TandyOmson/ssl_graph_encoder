@@ -43,7 +43,7 @@ def build_finetune_model(encoder, config):
     reg_headClass = load_class(config["regression_head"]["class_path"])
 
     reg_args = filter_class_config(reg_headClass, **config["regression_head"]["kwargs"])
-    reg_head = reg_headClass(config["encoder"]["embed_dim"], **reg_args)
+    reg_head = reg_headClass(encoder.output_dim, **reg_args)
 
     return GraphRegressionModel(encoder, reg_head)
 
