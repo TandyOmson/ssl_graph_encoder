@@ -19,7 +19,7 @@ from torch_geometric.datasets import TUDataset
 import optuna
 
 # form the install sll_graph_encoder package
-from utils.data_preprocessing import read_smiles_file, mol_to_graph, read_affins_csv, MoleculeDataset, split_dataset
+from utils.data_preprocessing import MoleculeDataset, split_dataset
 from utils.evaluate_embeddings import supervised_embedding_eval, unsupervised_embedding_eval, evaluate_full_model, encoder_embeddings_out, supervised_embedding_eval_classification, evaluate_full_model_classification
 from training.pretrain import build_pretrain_encoder, PretrainTrainer
 from training.finetune import build_finetune_model, FinetuneTrainer
@@ -136,23 +136,12 @@ class Objective:
 
         return config
     
-    # Essential methods for call
     def prepare_data(self, config):
-        # mols = read_smiles_file(config["smi_file"], add_hs=True)
-        # graphs = [mol_to_graph(mol) for mol in mols]
+        if config["download"]:
+            dataset = TUDataset(config["datadir"] / "raw", name=config["download_name"], use_node_attr=True)
+        else:
+            dataset = MoleculeDataset(config["datafile"])
 
-        # # idxs returned because read affins does some filtering
-        # # need to add filtering functions
-        # labels, idxs = read_affins_csv(config["affins_csv"])
-
-        # # Restrict to molecules that have affinity labels
-        # graphs = [graphs[i-1] for i in idxs]
-        
-        #for data, y in zip(graphs, labels):
-        #    data.y = torch.tensor(y, dtype=torch.float).view(1)
-        #dataset = MoleculeDataset(graphs)
-        
-        dataset = TUDataset(config["datadir"] / "raw", name="NCI1", use_node_attr=True)
         self.dataloader = DataLoader(dataset, 
                                 batch_size=config["pretrain"]["batch_size"], 
                                 shuffle=True, 
@@ -259,10 +248,10 @@ if __name__ == "__main__":
         config = yaml.safe_load(f)
 
     # Set paths for input and output
-    config["smi_file"] = Path(config["smi_file"])
-    config["affins_csv"] = Path(config["affins_csv"])
     config["outdir"] = Path(config["outdir"])
     config["datadir"] = Path(config["datadir"])
+    if config["datafile"] is not None:
+        config["datafile"] = Path(config["datafile"])
 
     setup_logging(config["outdir"])
 
