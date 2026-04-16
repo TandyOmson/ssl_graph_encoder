@@ -91,7 +91,7 @@ class FinetuneTrainer:
                     data = data.to(self.device)
                     optimizer.zero_grad()
                     outputs = model(data)
-                    loss = criterion(outputs, data.y)
+                    loss = criterion(outputs, data.y.float())
                     loss.backward()
                     optimizer.step()
 
@@ -103,7 +103,7 @@ class FinetuneTrainer:
                 with torch.no_grad():
                     for data in val_loader:
                         pred = model(data)
-                        val_loss += criterion(pred, data.y)
+                        val_loss += criterion(pred, data.y.float())
                 val_loss /= len(val_loader.dataset)
                 t.set_postfix(val_loss=f'{val_loss:.4f}', train_loss=f'{train_loss:.4f}')
 

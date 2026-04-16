@@ -2,10 +2,10 @@
 """
 import torch
 
-from sklearn.linear_model import Ridge
+from sklearn.linear_model import Ridge, RidgeClassifier
 from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import mean_squared_error, r2_score
-from sklearn.neighbors import KNeighborsRegressor, NearestNeighbors
+from sklearn.metrics import mean_squared_error, r2_score, accuracy_score, f1_score
+from sklearn.neighbors import KNeighborsRegressor, NearestNeighbors, KNeighborsClassifier
 from sklearn.model_selection import train_test_split
 from scipy.stats import spearmanr
 from scipy.spatial.distance import pdist
@@ -124,3 +124,66 @@ def encoder_embeddings_out(trained_encoder, dataloader):
     labels_np = labels.cpu().numpy()
 
     return embeddings_np, labels_np
+
+#
+# Evaluation methods for classification tasks
+#
+def supervised_embedding_eval_classification(embeddings, labels):
+    """ Evaluate embeddings against discrete labels for classification
+        Rigde classification
+        KNN classification
+    """
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        embeddings, labels, test_size=0.2, random_state=42
+    )
+
+    # Standardize embeddings
+    scaler = StandardScaler()
+    X_train = scaler.fit_transform(X_train)
+    X_test = scaler.transform(X_test)
+
+    # Ridge Classification (global)
+    clf = RidgeClassifier(alpha=1.0)
+    clf.fit(X_train, y_train)
+    clf_preds = clf.predict(X_test)
+
+    lr_acc = accuracy_score(y_test, clf_preds)
+    lr_f1 = f1_score(y_test, clf_preds, average='weighted') # average only applies if multi-class
+
+    # kNN Classification (local)
+    knn_clf = KNeighborsClassifier(n_neighbors=5)
+    knn_clf.fit(X_train, y_train)
+    knn_preds = knn_clf.predict(X_test)
+
+    knn_acc = accuracy_score(y_test, knn_preds)
+    knn_f1 = f1_score(y_test, knn_preds, average='weighted')
+
+    return lr_acc, lr_f1, knn_acc, knn_f1
+
+def evaluate_full_model_classification(model, val_loader):
+    """ Evaluate accuaracy and F1 of the full model on the test set
+    """
+    model.eval()
+    all_preds = []
+    all_labels = []
+    with torch.no_grad():
+        for data in val_loader:
+            preds = model(data)
+
+            # convert logits to predicted class labels (the logits loss function applies a sigmoid in class classification)
+            probs = torch.sigmoid(preds)
+            preds = (probs > 0.5).long()
+
+            # multiclass case is using CrossEntropyLoss which applies softmax
+            # preds = preds.argmax(dim=-1)
+
+            all_preds.append(preds.cpu().numpy())
+            all_labels.append(data.y.cpu().numpy())
+
+    all_labels = np.concatenate(all_labels).flatten()
+    all_preds = np.concatenate(all_preds).flatten()
+
+    acc = accuracy_score(all_labels, all_preds)
+    f1 = f1_score(all_labels, all_preds, average='weighted')
+    return acc, f1

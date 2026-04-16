@@ -1,32 +1,34 @@
-""" Regression head for supervised learning of molecule embeddings (after unsupervised pretraining)
+""" Classification head
+    Basically the same as regression head, but may diverge later
+    If I add class weighting, label smoothing, etc.
 """
 
 import torch
 import torch.nn as nn
 
-class RegressionHead(nn.Module):
+class ClassificationHead(nn.Module):
     """
-    Flexible regression head for pretrained embeddings.
+    Flexible classification head for pretrained embeddings.
 
     Supports:
     - linear (num_layers=1)
     - MLP (num_layers > 1)
-    - optional embedding normalization (useful for pretrained embeddings)
+    - optional embeddig normalization (useful for pretrained embeddings)
     """
 
-    def __init__(self, 
+    def __init__(self,
                  embed_dim,
-                 output_dim=1,
+                 num_classes=1,
                  hidden_dim=None,
                  num_layers=3,
                  dropout=0.0,
                  activation="relu",
-                 use_layernorm=False
-                 ):
+                 use_layernorm=False,
+                ):
         super().__init__()
 
         hidden_dim = hidden_dim or embed_dim
-
+        
         act_map = {
             "relu": nn.ReLU,
             "gelu": nn.GELU,
@@ -36,10 +38,10 @@ class RegressionHead(nn.Module):
         }
         if activation not in act_map:
             raise ValueError(f"Unsupported activation: {activation}")
-
+        
         layers = []
         in_dim = embed_dim
-
+        
         # Optional normalization layer before hidden layers
         if use_layernorm:
             layers.append(nn.LayerNorm(embed_dim))
@@ -52,25 +54,29 @@ class RegressionHead(nn.Module):
                 layers.append(nn.Dropout(dropout))
             in_dim = hidden_dim
 
-        # Output layer
-        layers.append(nn.Linear(in_dim, output_dim))
+        # Logit output layer
+        layers.append(nn.Linear(in_dim, num_classes))
 
         self.model = nn.Sequential(*layers)
-        self.output_dim = output_dim
+        self.output_dim = num_classes
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         x: (batch, embed_dim) or (embed_dim,)
-        returns: (batch,) or (batch, output_dim)
+        returns:
+            - (batch,)            if num_classes == 1
+            - (batch, num_classes) otherwise
+
+            Outputs are logits, use sigmoid/softmax *outside* the model if needed
         """
-        # single input sample
+        # if single input sample
         if x.dim() == 1:
             x = x.unsqueeze(0)
 
-        out = self.model(x)
+        logits = self.model(x)
 
-        # fix output shape for single output regression
         if self.output_dim == 1:
-            out = out.squeeze(-1)
+            logits = logits.squeeze(-1)
 
-        return out
+        return logits
+

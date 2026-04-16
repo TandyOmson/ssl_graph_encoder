@@ -15,11 +15,12 @@ import pprint
 
 import torch
 from torch_geometric.loader import DataLoader
+from torch_geometric.datasets import TUDataset
 import optuna
 
 # form the install sll_graph_encoder package
-from utils.data_preprocessing import smi_to_mol, mol_to_graph, MoleculeDataset, split_dataset
-from utils.evaluate_embeddings import supervised_embedding_eval, unsupervised_embedding_eval, evaluate_full_model, encoder_embeddings_out
+from utils.data_preprocessing import read_smiles_file, mol_to_graph, read_affins_csv, MoleculeDataset, split_dataset
+from utils.evaluate_embeddings import supervised_embedding_eval, unsupervised_embedding_eval, evaluate_full_model, encoder_embeddings_out, supervised_embedding_eval_classification, evaluate_full_model_classification
 from training.pretrain import build_pretrain_encoder, PretrainTrainer
 from training.finetune import build_finetune_model, FinetuneTrainer
 from utils.tuning_helpers import apply_search_space, BestTrialCallback, LogDistributionsOnce, log_trial_metrics_and_params
@@ -51,6 +52,11 @@ class Objective:
         
         config = self.make_config(trial)
 
+        self.classification = config.get("classification", False)
+        if self.classification:
+            log.info("Running in classification mode")
+        else:
+            log.info("Running in regression mode")
         self.prepare_data(config)
 
         results = {}
@@ -59,7 +65,7 @@ class Objective:
             self.build_graph_encoder_ssl(config)
             self.run_pretrain(config)
             embeddings, labelsout = encoder_embeddings_out(self.encoder, self.dataloader)
-            pretrain_encoder_stats = self.evaluate_encoder(embeddings, labelsout)
+            pretrain_encoder_stats = self.evaluate_encoder(embeddings, labelsout, classification=self.classification)
             metrics = pretrain_encoder_stats # only relevant if not finetuning
 
             # I/O
@@ -72,14 +78,14 @@ class Objective:
             save_pretrained_encoder(f"{config['datadir']}/models/{self.base_name}_pretrained_encoder.pt",
                                     self.encoder,
                                     config,
-                                    extra={"ridge_rmse":results["pretrain"]["ridge_rmse"]},
+                                    #extra={"ridge_rmse":results["pretrain"]["ridge_rmse"]},
                                     )
 
         if config["finetune"]:
             self.build_model(config)
             self.run_finetune(config)
             embeddings, labelsout = encoder_embeddings_out(self.encoder, self.dataloader)
-            finetune_encoder_stats = self.evaluate_encoder(embeddings, labelsout)
+            finetune_encoder_stats = self.evaluate_encoder(embeddings, labelsout, classification=self.classification)
             
             # I/O
             np.savez(f"{config['datadir']}/processed/{self.base_name}_finetuned.npz",
@@ -88,12 +94,12 @@ class Objective:
                      )
             results["finetune"] = metrics
             log.debug("FINETUNE EMBEDDING STATS:\n" + pprint.pformat(finetune_encoder_stats, width=1))
-            metrics = self.evaluate_model()
+            metrics = self.evaluate_model(classification=self.classification)
             save_full_model(f"{config['datadir']}/models/{self.base_name}_model.pt",
                             self.model.encoder,
                             self.model.reg_head,
                             config,
-                            extra={"rmse":metrics[config["objective"]]}
+                            #extra={"rmse":metrics[config["objective"]]}
                             )
         
         # if hyperparameter trial, output trial score, other metrics and params to .csv
@@ -132,20 +138,21 @@ class Objective:
     
     # Essential methods for call
     def prepare_data(self, config):
-        smis = [i.rstrip() for i in open(config["smi_file"], 'r').readlines()]
-        mols = [smi_to_mol(smi, add_hs=True) for smi in smis]
-        graphs = [mol_to_graph(mol) for mol in mols]
+        # mols = read_smiles_file(config["smi_file"], add_hs=True)
+        # graphs = [mol_to_graph(mol) for mol in mols]
 
-        affins_df = pd.read_csv(config["affins_csv"], index_col=0)
-        affins_df = affins_df[affins_df["pose_1"].between(-20, 0)]
-        labels = affins_df["pose_1"].values
+        # # idxs returned because read affins does some filtering
+        # # need to add filtering functions
+        # labels, idxs = read_affins_csv(config["affins_csv"])
 
-        # Restrict to molecules that have affinity labels
-        graphs = [graphs[i-1] for i in affins_df.index]
-
-        for data, y in zip(graphs, labels):
-            data.y = torch.tensor(y, dtype=torch.float).view(1)
-        dataset = MoleculeDataset(graphs)
+        # # Restrict to molecules that have affinity labels
+        # graphs = [graphs[i-1] for i in idxs]
+        
+        #for data, y in zip(graphs, labels):
+        #    data.y = torch.tensor(y, dtype=torch.float).view(1)
+        #dataset = MoleculeDataset(graphs)
+        
+        dataset = TUDataset(config["datadir"] / "raw", name="NCI1", use_node_attr=True)
         self.dataloader = DataLoader(dataset, 
                                 batch_size=config["pretrain"]["batch_size"], 
                                 shuffle=True, 
@@ -182,15 +189,29 @@ class Objective:
         return
     
     @staticmethod
-    def evaluate_encoder(embeddings, labels):
-        ridge_rmse, ridge_r2, knn_rmse, knn_r2, spearman_corr = supervised_embedding_eval(embeddings, labels)
+    def evaluate_encoder(embeddings, labels, classification=False):
+        """ Evaludate the encoder embedddings irrespective of any prediction head
+        """
         spread_mean, spread_median, dist_cv = unsupervised_embedding_eval(embeddings)
-        return {"ridge_rmse" : ridge_rmse, "ridge_r2": ridge_r2, "knn_rmse" : knn_rmse, "knn_r2" : knn_r2, "spearman_corr" : spearman_corr,
-                "spread_mean" : spread_mean, "spread_median" : spread_median, "dist_csv" : dist_cv}
+        
+        if classification:
+            ridge_acc, ridge_f1, knn_acc, knn_f1 = supervised_embedding_eval_classification(embeddings, labels)
+            return {"ridge_acc" : ridge_acc, "ridge_f1": ridge_f1, "knn_acc" : knn_acc, "knn_f1" : knn_f1,
+                    "spread_mean" : spread_mean, "spread_median" : spread_median, "dist_csv" : dist_cv}
+        else:
+            ridge_rmse, ridge_r2, knn_rmse, knn_r2, spearman_corr = supervised_embedding_eval(embeddings, labels)
+            return {"ridge_rmse" : ridge_rmse, "ridge_r2": ridge_r2, "knn_rmse" : knn_rmse, "knn_r2" : knn_r2, "spearman_corr" : spearman_corr,
+                    "spread_mean" : spread_mean, "spread_median" : spread_median, "dist_csv" : dist_cv}
 
-    def evaluate_model(self):
-        rmse, r2 = evaluate_full_model(self.model, self.test_loader)
-        return {"rmse" : rmse, "r2" : r2}
+    def evaluate_model(self, classification=False):
+        """ Evaluate full mode with encoder and prediction head using the test set
+        """
+        if classification:
+            acc, f1 = evaluate_full_model_classification(self.model, self.test_loader)
+            return {"accuracy" : acc, "f1_score" : f1}
+        else:
+            rmse, r2 = evaluate_full_model(self.model, self.test_loader)
+            return {"rmse" : rmse, "r2" : r2}
     
 def setup_logging(log_dir):
     """ configure logging
