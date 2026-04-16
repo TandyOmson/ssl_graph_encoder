@@ -148,7 +148,6 @@ if __name__ == "__main__":
     ]
 
     node_feature_dim = sum(f.dim for f in node_features)
-    print("Node feature dimension:", node_feature_dim)
     
     # edge/bond features: accept rdkit bond object
     edge_features = [
@@ -183,15 +182,18 @@ if __name__ == "__main__":
         ),
     ]
 
-    edge_feature_dim = sum(f.dim for f in edge_features)
-    print("Edge feature dimension:", edge_feature_dim)
+
 
     # TEMPORARY, later can create a config file that chooses node and edge features
     node_features_active = {name: True for name in [i.name for i in node_features]}
     edge_features_active = {name: True for name in [i.name for i in edge_features]}
 
-    print("active node features:", node_features_active)
-    print("active edge features:", edge_features_active)
+    # for now, selecting manually
+    node_features_active = {
+        "species": True,        
+    }
+    edge_features_active = {
+    }
 
     smis = [i.strip() for i in open(args.smiles, 'r').readlines()]
     mols = [smi_to_mol(smi, add_hs=True) for smi in smis]
@@ -206,8 +208,13 @@ if __name__ == "__main__":
         if edge_features_active.get(n.name, False)
     ]
 
+    print("Node feature dimension:", len(active_node_specs))
+    print("Edge feature dimension:", len(active_edge_specs))
+    if len(active_edge_specs) == 0:
+        active_edge_specs = None
+
     graphs = [
-        mol_to_graph(mol, node_specs=active_node_specs, edge_specs=None)
+        mol_to_graph(mol, node_specs=active_node_specs, edge_specs=active_edge_specs)
         for mol in mols
     ] # torch_geometric.data.Data objects
 
