@@ -8,6 +8,7 @@ datadir: data  # processed data, checkpoints, models
 run_name: test # determines output names
 objective: rmse
 device: cpu # cuda or cpu, default cpu
+classification: False
 
 encoder:
   class_path: models.encoders.encoder.digEncoder
@@ -52,7 +53,7 @@ finetune:
       lr: 1.0e-3
       weight_decay: 1.0e-4
   criterion:
-    class_path: torch.nn.MSELoss
+    class_path: torch.nn.MSELoss # default MSELoss for reg or BCEWithLogitsLoss for class
     kwargs: {}
 
 tuning:
