@@ -1,0 +1,75 @@
+# Default setup
+datafile: data/raw/hydros_minimal/hydros_minimal.pt
+download: False # overrides datafile, retrieves from available TUDatasets
+download_name: NCI1
+
+outdir: logs/test # basic results, logging
+datadir: data  # processed data, checkpoints, models
+
+run_name: test # determines output names
+objective: rmse
+device: cpu # cuda or cpu, default cpu
+classification: False
+
+encoder:
+  class_path: models.encoders.encoder.digEncoder
+  embed_dim: 128
+  kwargs:
+    num_layers: 5
+    gnn: resgcn
+
+ssl_nn:
+  class_path: models.ssl.self_sup_nn.GraphCL
+  kwargs:
+    aug_1: maskN       
+    aug_2: dropN
+    aug_ratio: 0.2
+    objective: NCE
+
+regression_head:
+  class_path: models.reg_heads.regression_head.RegressionHead
+  kwargs:
+    hidden_dim : 128
+    num_layers: 5
+    dropout: 0.1
+    activation: relu
+    use_layernorm: True
+
+pretrain:
+  batch_size: 128
+  num_workers: 4
+  epochs: 2
+  optimizer:
+    class_path: torch.optim.Adam
+    kwargs:
+      lr: 1.0e-4
+
+finetune:
+  freeze_encoder: False
+  batch_size: 128
+  epochs: 2
+  optimizer:
+    class_path: torch.optim.AdamW
+    kwargs:
+      lr: 1.0e-3
+      weight_decay: 1.0e-4
+  criterion:
+    class_path: torch.nn.MSELoss # default MSELoss for reg or BCEWithLogitsLoss for class
+    kwargs: {}
+
+tuning:
+  run_tuning: False
+  n_trials: 2
+  
+  search_space:
+    - name: finetune.optimizer.kwargs.lr
+      type: float
+      low: 1.0e-5
+      high: 1.0e-2
+      log: True
+      
+    - name: regression_head.dropout
+      type: float
+      low: 0.0
+      high: 0.4
+      
