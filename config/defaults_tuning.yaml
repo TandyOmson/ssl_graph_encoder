@@ -38,7 +38,7 @@ regression_head:
 pretrain:
   batch_size: 128
   num_workers: 4
-  epochs: 250
+  epochs: 100
   optimizer:
     class_path: torch.optim.Adam
     kwargs:
@@ -47,7 +47,7 @@ pretrain:
 finetune:
   freeze_encoder: False
   batch_size: 128
-  epochs: 250
+  epochs: 100
   optimizer:
     class_path: torch.optim.AdamW
     kwargs:
@@ -58,5 +58,18 @@ finetune:
     kwargs: {}
 
 tuning:
-  run_tuning: False
+  run_tuning: True
+  n_trials: 5
+  
+  search_space:
+    - name: finetune.optimizer.kwargs.lr
+      type: float
+      low: 1.0e-5
+      high: 1.0e-2
+      log: True
+      
+    - name: regression_head.dropout
+      type: float
+      low: 0.0
+      high: 0.4
       

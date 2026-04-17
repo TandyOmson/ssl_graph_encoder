@@ -7,9 +7,9 @@ outdir: logs/test # basic results, logging
 datadir: data  # processed data, checkpoints, models
 
 run_name: test # determines output names
-objective: rmse
+objective: accuracy
 device: cpu # cuda or cpu, default cpu
-classification: False
+classification: Trye
 
 encoder:
   class_path: models.encoders.encoder.digEncoder
@@ -27,7 +27,7 @@ ssl_nn:
     objective: NCE
 
 regression_head:
-  class_path: models.reg_heads.regression_head.RegressionHead
+  class_path: models.reg_heads.classification_head.ClassificationHead
   kwargs:
     hidden_dim : 128
     num_layers: 5
@@ -38,7 +38,7 @@ regression_head:
 pretrain:
   batch_size: 128
   num_workers: 4
-  epochs: 250
+  epochs: 2
   optimizer:
     class_path: torch.optim.Adam
     kwargs:
@@ -47,16 +47,15 @@ pretrain:
 finetune:
   freeze_encoder: False
   batch_size: 128
-  epochs: 250
+  epochs: 2
   optimizer:
     class_path: torch.optim.AdamW
     kwargs:
       lr: 1.0e-3
       weight_decay: 1.0e-4
   criterion:
-    class_path: torch.nn.MSELoss # default MSELoss for reg or BCEWithLogitsLoss for class
+    class_path: torch.nn.BCEWithLogitsLoss # default MSELoss for reg or BCEWithLogitsLoss for class
     kwargs: {}
 
 tuning:
   run_tuning: False
-      
