@@ -169,14 +169,18 @@ def evaluate_full_model_classification(model, val_loader):
     all_labels = []
     with torch.no_grad():
         for data in val_loader:
-            preds = model(data)
+            logits = model(data)
 
-            # convert logits to predicted class labels (the logits loss function applies a sigmoid in class classification)
-            probs = torch.sigmoid(preds)
-            preds = (probs > 0.5).long()
+            # binary 
+            if logits.ndim == 1 or logits.shape[-1] == 1:
+                # convert logits to predicted class labels (the logits loss function applies a sigmoid in class classification)
+                probs = torch.sigmoid(logits)
+                preds = (probs > 0.5).long()
 
-            # multiclass case is using CrossEntropyLoss which applies softmax
-            # preds = preds.argmax(dim=-1)
+            # multiclass
+            else:
+                # multiclass case is using CrossEntropyLoss which applies softmax
+                preds = logits.argmax(dim=-1)
 
             all_preds.append(preds.cpu().numpy())
             all_labels.append(data.y.cpu().numpy())
