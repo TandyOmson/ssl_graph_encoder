@@ -16,6 +16,7 @@ import torch
 from torch_geometric.data import Data, InMemoryDataset
 from rdkit import Chem
 import pandas as pd
+import numpy as np
 
 class FeatureSpec:
     def __init__(self, name, func, *, vocab=None):
@@ -50,7 +51,7 @@ def smi_to_mol(smi, add_hs=False):
     # room to add custom sanitization functions
     return mol
 
-def mol_to_graph(mol, node_specs=None, edge_specs=None):
+def mol_to_graph(mol, node_specs=None, edge_specs=None, pos_3d=False):
     
     node_features = []
     if node_specs:
@@ -85,13 +86,44 @@ def mol_to_graph(mol, node_specs=None, edge_specs=None):
         edge_attr = torch.tensor(edge_features, dtype=torch.float32)
         data.edge_attr = edge_attr
 
+    if pos_3d:
+        if mol.GetConformer().Is3D():
+            pos = np.array([[p.x, p.y, p.z] for p in mol.GetConformer().GetPositions()])
+            pos = torch.tensor(pos, dtype=torch.float32)
+            data.pos = pos
+        else:
+            print("3D was specified, but no coordinates were found in a data object...")
+            raise Exception
+
     return data
+
+def add_nitrogen_charges(m):
+    m.UpdatePropertyCache(strict=False)
+    ps = Chem.DetectChemistryProblems(m)
+    if not ps:
+        Chem.SanitizeMol(m)
+        return m
+    for p in ps:
+        if p.GetType()=='AtomValenceException':
+            at = m.GetAtomWithIdx(p.GetAtomIdx())
+            if at.GetAtomicNum()==7 and at.GetFormalCharge()==0 and at.GetExplicitValence()==4:
+                at.SetFormalCharge(1)
+            if at.GetAtomicNum()==7 and at.GetFormalCharge()==0:
+                bondcount = 0
+                for b in at.GetBonds():
+                    bondcount += b.GetBondTypeAsDouble()
+                if int(bondcount) > 3:
+                    at.SetFormalCharge(1)
+                
+    Chem.SanitizeMol(m)
+    return m
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--labels", type=str, required=False, help="Path to .csv file with columns as labels, index is sample index")
-    parser.add_argument("--smiles", type=str, required=True, help="Path to file with SMILES")
+    parser.add_argument("--mols", type=str, required=True, help="Path to file with SMILES, or .sdf file if --pos_3d True")
     parser.add_argument("--output", type=str, required=True, help="Path to output .pt file to save dataset in")
+    parser.add_argument("--pos_3d", type=bool, default=False, help="Whether to include 3D positions in graph data")
 
     args = parser.parse_args()
 
@@ -195,8 +227,16 @@ if __name__ == "__main__":
     edge_features_active = {
     }
 
-    smis = [i.strip() for i in open(args.smiles, 'r').readlines()]
-    mols = [smi_to_mol(smi, add_hs=True) for smi in smis]
+    if not args.pos_3d:
+        smis = [i.strip() for i in open(args.mols, 'r').readlines()]
+        mols = [smi_to_mol(smi, add_hs=True) for smi in smis]
+    else:
+        try:
+            mols = Chem.SDMolSupplier(args.mols, sanitize=False, removeHs=False)
+            mols = [add_nitrogen_charges(m) for m in mols]
+        except:
+            print("pos 3d was selected, cannot read .sdf from --mols argument")
+            raise Exception
     
     active_node_specs = [
         n for n in node_features
@@ -214,7 +254,7 @@ if __name__ == "__main__":
         active_edge_specs = None
 
     graphs = [
-        mol_to_graph(mol, node_specs=active_node_specs, edge_specs=active_edge_specs)
+        mol_to_graph(mol, node_specs=active_node_specs, edge_specs=active_edge_specs, pos_3d=args.pos_3d)
         for mol in mols
     ] # torch_geometric.data.Data objects
 
