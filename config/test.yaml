@@ -12,7 +12,7 @@ device: cpu # cuda or cpu, default cpu
 classification: False
 
 encoder:
-  class_path: models.encoders.encoder.digEncoder
+  class_path: models.encoders.dig_encoder.digEncoder
   embed_dim: 128
   kwargs:
     num_layers: 5
@@ -26,8 +26,8 @@ ssl_nn:
     aug_ratio: 0.2
     objective: NCE
 
-regression_head:
-  class_path: models.reg_heads.regression_head.RegressionHead
+prediction_head:
+  class_path: models.pred_heads.regression_head.RegressionHead
   kwargs:
     hidden_dim : 128
     num_layers: 5

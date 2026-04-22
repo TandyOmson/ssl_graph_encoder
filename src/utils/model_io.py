@@ -36,9 +36,9 @@ def load_pretrained_encoder(path, map_location="cpu"):
     
     return encoder, payload
 
-def save_full_model(path, encoder, regression_head, config, extra=None):
+def save_full_model(path, encoder, prediction_head, config, extra=None):
     payload = {
-        "model": "encoder+regression_head",
+        "model": "encoder+prediction_head",
 
         "feat_dim" : config["feat_dim"],
         # encoder
@@ -51,14 +51,14 @@ def save_full_model(path, encoder, regression_head, config, extra=None):
             "state_dict": encoder.state_dict(),
         },
 
-        # regression head
-        "regression_head": {
-            "class_path": config["regression_head"]["class_path"],
+        # prediction head
+        "prediction_head": {
+            "class_path": config["prediction_head"]["class_path"],
             "kwargs": {
-                k: v for k, v in config["regression_head"].items()
+                k: v for k, v in config["prediction_head"].items()
                 if k != "class_path"
             },
-            "state_dict": regression_head.state_dict(),
+            "state_dict": prediction_head.state_dict(),
         },
         "extra": extra or {},
         "config_snapshot": copy.deepcopy(config),
@@ -81,7 +81,7 @@ def load_full_model(path, map_location="cpu"):
     encoder.eval()
 
     # rebuild regression head
-    head_cfg = payload["regression_head"]
+    head_cfg = payload["prediction_head"]
     head_cls = load_class(head_cfg["class_path"])
 
     out_dim = getattr(encoder, "out_dim", enc_cfg["kwargs"]["embed_dim"])

@@ -14,10 +14,10 @@ class GraphRegressionModel(nn.Module):
     """ Final model class including encoder and regression head
     """
     # may move optimizer and criterion here later as class attribute
-    def __init__(self, encoder, reg_head):
+    def __init__(self, encoder, pred_head):
         super().__init__()
         self.encoder = encoder
-        self.reg_head = reg_head
+        self.pred_head = pred_head
 
     def forward(self, data):
         # extract node embeddings
@@ -28,7 +28,7 @@ class GraphRegressionModel(nn.Module):
             graph_emb = graph_emb[0]
 
         # pass through regression head
-        return self.reg_head(graph_emb)
+        return self.pred_head(graph_emb)
 
 def build_finetune_model(encoder, config):
     """ Generic factory function
@@ -40,15 +40,15 @@ def build_finetune_model(encoder, config):
         for p in encoder.parameters():
             p.requires_grad = False
 
-    reg_headClass = load_class(config["regression_head"]["class_path"])
+    pred_headClass = load_class(config["prediction_head"]["class_path"])
 
-    reg_args = filter_class_config(reg_headClass, **config["regression_head"]["kwargs"])
-    reg_head = reg_headClass(encoder.output_dim, **reg_args)
+    pred_args = filter_class_config(pred_headClass, **config["prediction_head"]["kwargs"])
+    pred_head = pred_headClass(encoder.output_dim, **pred_args)
 
-    return GraphRegressionModel(encoder, reg_head)
+    return GraphRegressionModel(encoder, pred_head)
 
 class FinetuneTrainer:
-    """ Trainer for supervised fine-tuning encoder + regression head model 
+    """ Trainer for supervised fine-tuning encoder + prediction head model 
     """
     def __init__(self, device, config):
         self.epochs = config["finetune"]["epochs"]

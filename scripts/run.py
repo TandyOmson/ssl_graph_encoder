@@ -97,7 +97,7 @@ class Objective:
             metrics = self.evaluate_model(classification=self.classification)
             save_full_model(f"{config['datadir']}/models/{self.base_name}_model.pt",
                             self.model.encoder,
-                            self.model.reg_head,
+                            self.model.pred_head,
                             config,
                             #extra={"rmse":metrics[config["objective"]]}
                             )
