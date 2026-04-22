@@ -5,14 +5,53 @@
     - Contrastive loss
 """
 from abc import ABC, abstractmethod
+from models.ssl.base.projection import ProjectionHead
+from models.ssl.base.augmentation import ViewAugmentor
+from models.ssl.base.loss import ContrastiveLoss
 
 class ContrastiveSSL(ABC):
-    def __init__(self, encoder, projector, augmentors, loss_fn):
-        self.encoder = encoder
+    def __init__(self, 
+                 encoder_out_dim : int,
+                 projector: ProjectionHead, 
+                 augmentors: ViewAugmentor, 
+                 loss_fn : ContrastiveLoss,
+                 ):
+        self.encoder_out_dim = encoder_out_dim
         self.projector = projector
-        self.augmentor = augmentors
+        self.augmentors = augmentors
         self.loss_fn = loss_fn
 
     @abstractmethod
     def training_step(self, batch):
+        """ Computes contrastive loss for a single batch
+        """
         pass
+
+    def pretrain(self, 
+                 encoder, 
+                 data_loader, 
+                 optimizer, 
+                 epochs, 
+                 ):
+        """ Runs self supervised pretraining on the encoder
+            Must yield the encoder
+        """
+        encoder.train()
+        self.projector.train()
+
+        # MUST ADD PROJECTOR TO OPTIMIZER PARAMS FOR THEM TO BE TRAINED
+        if self.projector is not None:
+            optimizer.add_param_group({
+                "params": self.projector.parameters()
+            })
+
+        for _ in range(epochs):
+            for batch in data_loader:
+                loss = self.training_step(batch, encoder)
+
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+
+            # encoder must be yielded to remove projection head
+            yield encoder

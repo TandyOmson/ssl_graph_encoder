@@ -19,12 +19,9 @@ encoder:
     gnn: resgcn
 
 ssl_nn:
-  class_path: models.ssl.methods.dig_graphCL.GraphCL
+  class_path: models.ssl.methods.2D_graphCL.GraphCL
   kwargs:
-    aug_1: maskN       
-    aug_2: dropN
     aug_ratio: 0.2
-    objective: NCE
 
 prediction_head:
   class_path: models.pred_heads.regression_head.RegressionHead

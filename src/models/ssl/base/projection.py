@@ -8,10 +8,12 @@ import torch
 from abc import ABC, abstractmethod
 
 class ProjectionHead(torch.nn.Module, ABC):
-    def __init__(self, in_dim: int, out_dim: int):
+    def __init__(self, in_dim: int, out_dim: int, normalise: bool):
         super().__init__()
         self.in_dim = in_dim
         self.out_dim = out_dim
+        # Many contrastive losses expect unit-norm embeddings
+        self.normalise = normalise
 
     @abstractmethod
     def forward(self, x: torch.Tensor) -> torch.Tensor:

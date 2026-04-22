@@ -24,7 +24,6 @@ ssl_nn:
     aug_1: maskN       
     aug_2: dropN
     aug_ratio: 0.2
-    objective: NCE
 
 prediction_head:
   class_path: models.pred_heads.regression_head.RegressionHead

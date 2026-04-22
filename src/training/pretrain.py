@@ -8,7 +8,7 @@ from training.training_helpers import load_class, filter_class_config
 
 log = logging.getLogger(__name__)
 
-class GraphEncoder:
+class GraphTrainLoop:
     """ Encoder class containing encoder and training method
     """
     def __init__(self, encoder, ssl):
@@ -27,7 +27,7 @@ def build_pretrain_encoder(feat_dim, embed_dim, config):
     ssl_args = filter_class_config(sslClass, **config["ssl_nn"]["kwargs"])
     ssl = sslClass(encoder.output_dim, **ssl_args)
 
-    return GraphEncoder(encoder, ssl)
+    return GraphTrainLoop(encoder, ssl)
 
 class PretrainTrainer:
     """ Trainer for self-supervised pretraining molecule embeddings
@@ -45,8 +45,6 @@ class PretrainTrainer:
         """ Construct optimizer from config, train encoder in-place
         """
         graph_encoder_ssl.encoder = graph_encoder_ssl.encoder.to(self.device)
-        graph_encoder_ssl.ssl = graph_encoder_ssl.ssl.to(self.device)
-        graph_encoder_ssl.encoder.train()
 
         optimizer = self.optim_class(graph_encoder_ssl.encoder.parameters(), **self.optim_kwargs)
 
@@ -56,7 +54,7 @@ class PretrainTrainer:
                                     message="Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.", 
                                     category=UserWarning
                                     )
-            for _ in graph_encoder_ssl.ssl.train(graph_encoder_ssl.encoder, dataloader, optimizer, epochs=self.epochs):
+            for _ in graph_encoder_ssl.ssl.pretrain(graph_encoder_ssl.encoder, dataloader, optimizer, epochs=self.epochs):
                 pass
 
         return graph_encoder_ssl.encoder
