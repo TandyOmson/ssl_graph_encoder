@@ -56,7 +56,7 @@ class GraphCL(Contrastive):
         super(GraphCL, self).__init__(objective=self.objective,
                                       views_fn=views_fn,
                                       z_dim=dim,
-                                      proj='MLP', # irrelevant, removed after pretraining
+                                      proj='MLP', # removed after pretraining
                                       )
 
     def train(self, encoders, data_loader, optimizer, epochs, per_epoch_out=False):
@@ -64,3 +64,4 @@ class GraphCL(Contrastive):
         for enc, proj in super(GraphCL, self).train(encoders, data_loader,
                                                     optimizer, epochs, per_epoch_out):
             yield enc
+

@@ -19,7 +19,7 @@ encoder:
     gnn: resgcn
 
 ssl_nn:
-  class_path: models.ssl.self_sup_nn.GraphCL
+  class_path: models.ssl.methods.dig_graphCL.GraphCL
   kwargs:
     aug_1: maskN       
     aug_2: dropN
