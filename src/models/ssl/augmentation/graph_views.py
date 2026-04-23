@@ -25,7 +25,7 @@ class DigNodeAttrMask(ViewAugmentor):
         self.ratio = ratio
 
     def aug_func(self, data):
-        dig = NodeAttrMask(mode=self.mode, mask_ratio=self.mask_ratio, mask_mean=self.mask_mean, mask_std=self.mask_std, return_mask=False)
+        dig = NodeAttrMask(mode=self.mode, mask_ratio=self.ratio, mask_mean=self.mask_mean, mask_std=self.mask_std, return_mask=False)
         return dig.do_trans(data)
     
 class DigNodeDropping(ViewAugmentor):

@@ -1,13 +1,12 @@
 """ Prepares a graph dataset from SMILES (with or without labels)
-    Takes the format of an InMemoryDataset as defined in torch_geometric
-
-    - Load Graph Specification (and label spec if relevant)
+    - Load Graph Specification
     - Load SMILES
-    - Convert to rdkit molecules objects
-    - Convert to graphs (torch_geometric Data objects)
-    - If labels provided, load labels and add to Data objects
-    - Save as InMemoryDataset (data, slices) to output path
-    - InMemoryDataset saves and loads based on whether the output dir exists!
+    - Convert to rdkit molecule objects
+    - Embed n conformers using MMFF94
+    - Convert all conformers to graphs
+    - Create data objects with ONLY conformer 1 and add labels (if provided)
+    - Save conformers 2 to n in a separate file
+    - Save dataset as InMemoryDataset (data, slices)
 """
 
 import argparse
@@ -15,6 +14,7 @@ import argparse
 import torch
 from torch_geometric.data import Data, InMemoryDataset
 from rdkit import Chem
+from rdkit.Chem import AllChem
 import pandas as pd
 import numpy as np
 
@@ -51,7 +51,7 @@ def smi_to_mol(smi, add_hs=False):
     # room to add custom sanitization functions
     return mol
 
-def mol_to_graph(mol, node_specs=None, edge_specs=None, pos_3d=False):
+def mol_to_graph(mol, node_specs=None, edge_specs=None, pos_3d=False, conf_id=0):
     
     node_features = []
     if node_specs:
@@ -88,7 +88,7 @@ def mol_to_graph(mol, node_specs=None, edge_specs=None, pos_3d=False):
 
     if pos_3d:
         if mol.GetConformer().Is3D():
-            pos = np.array([[p.x, p.y, p.z] for p in mol.GetConformer().GetPositions()])
+            pos = np.array([[p.x, p.y, p.z] for p in mol.GetConformer(conf_id).GetPositions()])
             pos = torch.tensor(pos, dtype=torch.float32)
             data.pos = pos
         else:
@@ -97,33 +97,13 @@ def mol_to_graph(mol, node_specs=None, edge_specs=None, pos_3d=False):
 
     return data
 
-def add_nitrogen_charges(m):
-    m.UpdatePropertyCache(strict=False)
-    ps = Chem.DetectChemistryProblems(m)
-    if not ps:
-        Chem.SanitizeMol(m)
-        return m
-    for p in ps:
-        if p.GetType()=='AtomValenceException':
-            at = m.GetAtomWithIdx(p.GetAtomIdx())
-            if at.GetAtomicNum()==7 and at.GetFormalCharge()==0 and at.GetExplicitValence()==4:
-                at.SetFormalCharge(1)
-            if at.GetAtomicNum()==7 and at.GetFormalCharge()==0:
-                bondcount = 0
-                for b in at.GetBonds():
-                    bondcount += b.GetBondTypeAsDouble()
-                if int(bondcount) > 3:
-                    at.SetFormalCharge(1)
-                
-    Chem.SanitizeMol(m)
-    return m
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--labels", type=str, required=False, help="Path to .csv file with columns as labels, index is sample index")
-    parser.add_argument("--mols", type=str, required=True, help="Path to file with SMILES, or .sdf file if --pos_3d True")
+    parser.add_argument("--smi", type=str, required=True, help="Path to file with SMILES")
     parser.add_argument("--output", type=str, required=True, help="Path to output .pt file to save dataset in")
-    parser.add_argument("--pos_3d", type=bool, default=False, help="Whether to include 3D positions in graph data")
+    parser.add_argument("--conf_out", type=str, required=True, help="Path to save graphs of conformers 2 to n")
+    parser.add_argument("--n_confs", type=int, required=True, help="Total number of conformers to generate")
 
     args = parser.parse_args()
 
@@ -215,7 +195,6 @@ if __name__ == "__main__":
     ]
 
 
-
     # TEMPORARY, later can create a config file that chooses node and edge features
     node_features_active = {name: True for name in [i.name for i in node_features]}
     edge_features_active = {name: True for name in [i.name for i in edge_features]}
@@ -227,17 +206,6 @@ if __name__ == "__main__":
     edge_features_active = {
     }
 
-    if not args.pos_3d:
-        smis = [i.strip() for i in open(args.mols, 'r').readlines()]
-        mols = [smi_to_mol(smi, add_hs=True) for smi in smis]
-    else:
-        try:
-            mols = Chem.SDMolSupplier(args.mols, sanitize=False, removeHs=False)
-            mols = [add_nitrogen_charges(m) for m in mols]
-        except:
-            print("pos 3d was selected, cannot read .sdf from --mols argument")
-            raise Exception
-    
     active_node_specs = [
         n for n in node_features
         if node_features_active.get(n.name, False)
@@ -253,22 +221,60 @@ if __name__ == "__main__":
     if len(active_edge_specs) == 0:
         active_edge_specs = None
 
-    graphs = [
-        mol_to_graph(mol, node_specs=active_node_specs, edge_specs=active_edge_specs, pos_3d=args.pos_3d)
-        for mol in mols
-    ] # torch_geometric.data.Data objects
+    smis = [i.strip() for i in open(args.mols, 'r').readlines()]
+    mols = [smi_to_mol(smi, add_hs=True) for smi in smis]
+
+    # Embed conformers
+    graphs = []
+    graphs_conf_pool = []
+    failure_ids = []
+    for sample_id, m in enumerate(mols):
+        res = AllChem.EmbedMultipleConfs(m, numConfs=args.n_confs)
+        if res == []:
+            res  = AllChem.EmbedMultipleConfs(m, numConfs=args.n_confs, useBasicKnowledge=False)
+            if res == []:
+                print(f"complete embed failure for sample {sample_id}")
+                failure_ids.append(sample_id)
+                continue
+
+        # sorted conf ids
+        mmff = AllChem.MMFFOptimizeMoleculeConfs(m)
+        res = list(res)
+
+        pairs = list(zip(res, mmff))
+        pairs.sort(key=lambda x: x[1][1])  # sort by energy
+
+        conf_ids = [cid for cid, _ in pairs]
+        g0 = mol_to_graph(m, node_specs=active_node_specs, edge_specs=active_edge_specs, pos_3d=True, conf_id=conf_ids[0])
+        g0.sample_id = sample_id
+        graphs.append(g0)
+
+        for idx in conf_ids[1:]:
+            g = mol_to_graph(m, node_specs=active_node_specs, edge_specs=active_edge_specs, pos_3d=True, conf_id=idx)
+            g.sample_id = sample_id # save flattened, load by sample_id later
+            graphs_conf_pool.append(g)
 
     # load labels
     labels_df = pd.read_csv(args.labels, index_col=0)
     if labels_df.index[0] == 1:
         labels_df.index = labels_df.index - 1
-    # apply desired filters to prepare label file
-    labels = labels_df["labels"].values
 
-    graphs = [graphs[i] for i in labels_df.index]
+    # remove failed samples
+    labels_df = labels_df.loc[~labels_df.index.isin(failure_ids)] 
+    label_map = labels_df["labels"].to_dict()         
+    labeled_ids = set(label_map.keys())
 
-    for data, y in zip(graphs, labels):
-        data.y = torch.tensor(y, dtype=torch.float32).view(1)
+    # remove graph with no labels
+    graphs = [g for g in graphs if g.sample_id in labeled_ids]
+    graphs_conf_pool = [
+        g for g in graphs_conf_pool if g.sample_id in labeled_ids
+    ]
+
+    # attach labels
+    for g in graphs:
+        g.y = torch.tensor(label_map[g.sample_id], dtype=torch.float32).view(1)
+
+    assert len({g.sample_id for g in graphs}) == len(graphs)
     
     ys = [data.y for data in graphs]
     assert all(y.shape == ys[0].shape for y in ys)
@@ -276,3 +282,6 @@ if __name__ == "__main__":
 
     data, slices = InMemoryDataset.collate(graphs)
     torch.save((data, slices), args.output)
+
+    data, slices = InMemoryDataset.collate(graphs_conf_pool)
+    torch.save((data, slices), args.conf_out)
