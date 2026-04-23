@@ -1,30 +1,32 @@
 # Default setup
 datafile: data/raw/hydros_minimal/hydros_minimal.pt
-download: False # overrides datafile, retrieves from available TUDatasets
+download: True # overrides datafile, retrieves from available TUDatasets
 download_name: NCI1
 
 outdir: logs/test # basic results, logging
 datadir: data  # processed data, checkpoints, models
 
 run_name: test # determines output names
-objective: rmse
+objective: accuracy
 device: cpu # cuda or cpu, default cpu
-classification: False
+classification: True
 
 encoder:
   class_path: models.encoders.dig_encoder.digEncoder
   embed_dim: 128
   kwargs:
-    num_layers: 5
-    gnn: resgcn
+    gnn: gcn
+    num_layers: 3
 
 ssl_nn:
-  class_path: models.ssl.methods.2D_graphCL.GraphCL
+  class_path: models.ssl.methods.dig_graphCL.GraphCL
   kwargs:
+    aug_1: dropN
+    aug_2: subgraph
     aug_ratio: 0.2
 
 prediction_head:
-  class_path: models.pred_heads.regression_head.RegressionHead
+  class_path: models.pred_heads.classification_head.ClassificationHead
   kwargs:
     hidden_dim : 128
     num_layers: 5
@@ -35,7 +37,7 @@ prediction_head:
 pretrain:
   batch_size: 128
   num_workers: 4
-  epochs: 2
+  epochs: 10
   optimizer:
     class_path: torch.optim.Adam
     kwargs:
@@ -44,14 +46,14 @@ pretrain:
 finetune:
   freeze_encoder: False
   batch_size: 128
-  epochs: 2
+  epochs: 10
   optimizer:
     class_path: torch.optim.AdamW
     kwargs:
       lr: 1.0e-3
       weight_decay: 1.0e-4
   criterion:
-    class_path: torch.nn.MSELoss # default MSELoss for reg or BCEWithLogitsLoss for class
+    class_path: torch.nn.BCEWithLogitsLoss # default MSELoss for reg or BCEWithLogitsLoss for class
     kwargs: {}
 
 tuning:

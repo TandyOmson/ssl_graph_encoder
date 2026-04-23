@@ -4,6 +4,8 @@
     - Projection heads for tranforming from encoded representations of views to latent space where constrastive objective is calculated
     - Contrastive loss
 """
+from tqdm import trange
+
 from abc import ABC, abstractmethod
 from models.ssl.base.projection import ProjectionHead
 from models.ssl.base.augmentation import ViewAugmentor
@@ -45,13 +47,20 @@ class ContrastiveSSL(ABC):
                 "params": self.projector.parameters()
             })
 
-        for _ in range(epochs):
-            for batch in data_loader:
-                loss = self.training_step(batch, encoder)
+        with trange(epochs) as t:
+            for epoch in t:
+                train_loss = 0
+                t.set_description('Pretraining: epoch %d' % (epoch+1))
+                for batch in data_loader:
+                    loss = self.training_step(batch, encoder)
 
-                optimizer.zero_grad()
-                loss.backward()
-                optimizer.step()
+                    optimizer.zero_grad()
+                    loss.backward()
+                    optimizer.step()
 
-            # encoder must be yielded to remove projection head
-            yield encoder
+                    train_loss += loss
+                train_loss /= len(data_loader.dataset)
+                t.set_postfix(loss=f'{train_loss:.4f}')
+
+                # encoder must be yielded to remove projection head
+                yield encoder

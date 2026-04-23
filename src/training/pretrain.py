@@ -13,6 +13,7 @@ class GraphTrainLoop:
     """
     def __init__(self, encoder, ssl):
         self.encoder = encoder
+        # ssl defines the training loop: contrastive or predictive
         self.ssl = ssl
 
 def build_pretrain_encoder(feat_dim, embed_dim, config):
