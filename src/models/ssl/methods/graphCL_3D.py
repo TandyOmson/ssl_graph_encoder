@@ -24,7 +24,7 @@ class GraphCL(ContrastiveSSL):
         # fast lookup
         other_confs_dict = defaultdict(list)
         for g in conf_dataset:
-            other_confs_dict[g.sample_id].append(g)
+            other_confs_dict[int(g.sample_id)].append(g)
 
         projector = MLP(encoder_out_dim)
         augmentors = [AlternativeConformer(other_confs_dict),

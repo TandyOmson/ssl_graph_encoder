@@ -11,5 +11,5 @@ class AlternativeConformer(ViewAugmentor):
         self.alt_conf_dict = alt_conf_dict
         
     def aug_func(self, data):        
-        conformers = self.alt_conf_dict[data.sample_id]
+        conformers = self.alt_conf_dict[int(data.sample_id)]
         return random.choice(conformers)
