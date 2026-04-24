@@ -17,6 +17,7 @@ from rdkit import Chem
 from rdkit.Chem import AllChem
 import pandas as pd
 import numpy as np
+from tqdm import tqdm
 
 class FeatureSpec:
     def __init__(self, name, func, *, vocab=None):
@@ -88,7 +89,7 @@ def mol_to_graph(mol, node_specs=None, edge_specs=None, pos_3d=False, conf_id=0)
 
     if pos_3d:
         if mol.GetConformer().Is3D():
-            pos = np.array([[p.x, p.y, p.z] for p in mol.GetConformer(conf_id).GetPositions()])
+            pos = np.array([[p[0], p[1], p[2]] for p in mol.GetConformer(conf_id).GetPositions()])
             pos = torch.tensor(pos, dtype=torch.float32)
             data.pos = pos
         else:
@@ -102,7 +103,7 @@ if __name__ == "__main__":
     parser.add_argument("--labels", type=str, required=False, help="Path to .csv file with columns as labels, index is sample index")
     parser.add_argument("--smi", type=str, required=True, help="Path to file with SMILES")
     parser.add_argument("--output", type=str, required=True, help="Path to output .pt file to save dataset in")
-    parser.add_argument("--conf_out", type=str, required=True, help="Path to save graphs of conformers 2 to n")
+    parser.add_argument("--conf_out", type=str, required=True, help="Path to output .pt file to save graphs of conformers 2 to n")
     parser.add_argument("--n_confs", type=int, required=True, help="Total number of conformers to generate")
 
     args = parser.parse_args()
@@ -221,17 +222,18 @@ if __name__ == "__main__":
     if len(active_edge_specs) == 0:
         active_edge_specs = None
 
-    smis = [i.strip() for i in open(args.mols, 'r').readlines()]
+    smis = [i.strip() for i in open(args.smi, 'r').readlines()]
     mols = [smi_to_mol(smi, add_hs=True) for smi in smis]
+    print(f"made {len(mols)} mol objects")
 
     # Embed conformers
     graphs = []
     graphs_conf_pool = []
     failure_ids = []
-    for sample_id, m in enumerate(mols):
-        res = AllChem.EmbedMultipleConfs(m, numConfs=args.n_confs)
+    for sample_id, m in tqdm(enumerate(mols), total=len(mols), desc="Embedding confs"):
+        res = AllChem.EmbedMultipleConfs(m, numConfs=args.n_confs, numThreads=0)
         if res == []:
-            res  = AllChem.EmbedMultipleConfs(m, numConfs=args.n_confs, useBasicKnowledge=False)
+            res  = AllChem.EmbedMultipleConfs(m, numConfs=args.n_confs, useBasicKnowledge=False, numThreads=0)
             if res == []:
                 print(f"complete embed failure for sample {sample_id}")
                 failure_ids.append(sample_id)
@@ -254,6 +256,7 @@ if __name__ == "__main__":
             g.sample_id = sample_id # save flattened, load by sample_id later
             graphs_conf_pool.append(g)
 
+    print(f"loading labesl from {args.labels}")
     # load labels
     labels_df = pd.read_csv(args.labels, index_col=0)
     if labels_df.index[0] == 1:
