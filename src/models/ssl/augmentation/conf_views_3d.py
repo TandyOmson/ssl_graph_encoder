@@ -15,5 +15,8 @@ class AlternativeConformer(ViewAugmentor):
         conformers = self.alt_conf_dict[int(data.sample_id)]
         # edge where there is only one stable conformer
         if not conformers:
-            return copy.deepcopy(data)
+            new_data = copy.deepcopy(data)
+            if 'y' in new_data:
+                del new_data.y
+            return new_data
         return random.choice(conformers)
