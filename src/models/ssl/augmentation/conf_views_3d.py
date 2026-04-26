@@ -3,6 +3,7 @@
 
 from models.ssl.base.augmentation import ViewAugmentor
 import random
+import copy
 
 class AlternativeConformer(ViewAugmentor):
     """ Picks a random conformer from alt_conf_data (already data objects)
@@ -12,4 +13,7 @@ class AlternativeConformer(ViewAugmentor):
         
     def aug_func(self, data):        
         conformers = self.alt_conf_dict[int(data.sample_id)]
+        # edge where there is only one stable conformer
+        if not conformers:
+            return copy.deepcopy(data)
         return random.choice(conformers)
