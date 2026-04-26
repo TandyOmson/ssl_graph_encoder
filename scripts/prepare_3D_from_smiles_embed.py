@@ -64,7 +64,6 @@ def mol_to_graph(mol, node_specs=None, edge_specs=None, pos_3d=False, conf_id=0)
     else:
         node_attr = torch.zeros((mol.GetNumAtoms(), 1), dtype=torch.float32)
 
-    print("Saving atomic nums as longs to data.z")
     atomic_nums = []
     for atom in mol.GetAtoms():
         atomic_nums.append(atom.GetAtomicNum())
@@ -244,6 +243,7 @@ if __name__ == "__main__":
         active_edge_specs = None
 
     # Embed conformers
+    print("saving atomic num longs to data.z")
     graphs = []
     graphs_conf_pool = []
     failure_ids = []
