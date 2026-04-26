@@ -249,9 +249,9 @@ if __name__ == "__main__":
     failure_ids = []
     for sample_id, m in tqdm(enumerate(mols), total=len(mols), desc="Embedding confs"):
         res = AllChem.EmbedMultipleConfs(m, numConfs=args.n_confs, numThreads=0)
-        if res == []:
+        if list(res) == []:
             res  = AllChem.EmbedMultipleConfs(m, numConfs=args.n_confs, useBasicKnowledge=False, numThreads=0)
-            if res == []:
+            if list(res) == []:
                 print(f"complete embed failure for sample {sample_id}")
                 failure_ids.append(sample_id)
                 continue
