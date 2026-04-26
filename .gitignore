@@ -1,5 +1,5 @@
-data/raw/*
-!data/raw/.gitkeep
+data/datasets/*
+!data/datasets/.gitkeep
 data/processed/*
 !data/processed/.gitkeep
 data/models/*

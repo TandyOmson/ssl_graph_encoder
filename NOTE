@@ -2,3 +2,6 @@ have to install pytorch-scatter with:
 git clone https://github.com/rusty1s/pytorch_scatter.git
 cd pytorch_scatter
 python setup.py install
+
+And then torch-cluster with 
+pip install torch-cluster -f https://data.pyg.org/whl/torch-2.10.0+cu128.html

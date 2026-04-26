@@ -64,6 +64,12 @@ def mol_to_graph(mol, node_specs=None, edge_specs=None, pos_3d=False, conf_id=0)
     else:
         node_attr = torch.zeros((mol.GetNumAtoms(), 1), dtype=torch.float32)
 
+    print("Saving atomic nums as longs to data.z")
+    atomic_nums = []
+    for atom in mol.GetAtoms():
+        atomic_nums.append(atom.GetAtomicNum())
+    atomic_nums = torch.tensor(atomic_nums, dtype=torch.long)
+
     edge_features = []
     edges = []
     for bond in mol.GetBonds():
@@ -81,7 +87,7 @@ def mol_to_graph(mol, node_specs=None, edge_specs=None, pos_3d=False, conf_id=0)
 
     edge_index = torch.tensor(edges, dtype=torch.long).t().contiguous()
     
-    data = Data(x=node_attr, edge_index=edge_index)
+    data = Data(x=node_attr, z=atomic_nums, edge_index=edge_index)
 
     if edge_specs and edge_features:
         edge_attr = torch.tensor(edge_features, dtype=torch.float32)
@@ -98,6 +104,15 @@ def mol_to_graph(mol, node_specs=None, edge_specs=None, pos_3d=False, conf_id=0)
 
     return data
 
+def get_vocab(mols):
+    species = set()
+    for m in mols:
+        for a in m.GetAtoms():
+            species.add(a.GetAtomicNum())
+    vocab = list(species)
+    vocab.sort()
+    return vocab
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--labels", type=str, required=False, help="Path to .csv file with columns as labels, index is sample index")
@@ -107,7 +122,13 @@ if __name__ == "__main__":
     parser.add_argument("--n_confs", type=int, required=True, help="Total number of conformers to generate")
 
     args = parser.parse_args()
+    
+    smis = [i.strip() for i in open(args.smi, 'r').readlines()]
+    mols = [smi_to_mol(smi, add_hs=True) for smi in smis]
+    print(f"made {len(mols)} mol objects")
 
+    species_vocab = get_vocab(mols)
+    print("vocab", species_vocab)
     # GRAPH SPECIFICATION
     # node/atom features: accept rdkit atom object
     # Atom identity (categorical → one-hot)
@@ -115,7 +136,7 @@ if __name__ == "__main__":
         FeatureSpec(
             name="species",
             func=lambda atom: atom.GetAtomicNum(),
-            vocab=[1, 6, 7, 8, 9, 15, 16, 17],  # H, C, N, O, F, P, S, Cl
+            vocab=species_vocab
         ),
 
         # Local topology (numeric)
@@ -221,10 +242,6 @@ if __name__ == "__main__":
     print("Edge feature dimension:", len(active_edge_specs))
     if len(active_edge_specs) == 0:
         active_edge_specs = None
-
-    smis = [i.strip() for i in open(args.smi, 'r').readlines()]
-    mols = [smi_to_mol(smi, add_hs=True) for smi in smis]
-    print(f"made {len(mols)} mol objects")
 
     # Embed conformers
     graphs = []

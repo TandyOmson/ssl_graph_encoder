@@ -118,6 +118,15 @@ def add_nitrogen_charges(m):
     Chem.SanitizeMol(m)
     return m
 
+def get_vocab(mols):
+    species = set()
+    for m in mols:
+        for a in m.GetAtoms():
+            species.add(a.GetAtomicNum())
+    vocab = list(species)
+    vocab.sort()
+    return vocab
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--labels", type=str, required=False, help="Path to .csv file with columns as labels, index is sample index")
@@ -127,6 +136,19 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
+    if not args.pos_3d:
+        smis = [i.strip() for i in open(args.mols, 'r').readlines()]
+        mols = [smi_to_mol(smi, add_hs=True) for smi in smis]
+    else:
+        try:
+            mols = Chem.SDMolSupplier(args.mols, sanitize=False, removeHs=False)
+            mols = [add_nitrogen_charges(m) for m in mols]
+        except:
+            print("pos 3d was selected, cannot read .sdf from --mols argument")
+            raise Exception
+    
+    vocab = get_vocab(mols)
+
     # GRAPH SPECIFICATION
     # node/atom features: accept rdkit atom object
     # Atom identity (categorical → one-hot)
@@ -134,7 +156,7 @@ if __name__ == "__main__":
         FeatureSpec(
             name="species",
             func=lambda atom: atom.GetAtomicNum(),
-            vocab=[1, 6, 7, 8, 9, 15, 16, 17],  # H, C, N, O, F, P, S, Cl
+            vocab=vocab
         ),
 
         # Local topology (numeric)
@@ -227,17 +249,6 @@ if __name__ == "__main__":
     edge_features_active = {
     }
 
-    if not args.pos_3d:
-        smis = [i.strip() for i in open(args.mols, 'r').readlines()]
-        mols = [smi_to_mol(smi, add_hs=True) for smi in smis]
-    else:
-        try:
-            mols = Chem.SDMolSupplier(args.mols, sanitize=False, removeHs=False)
-            mols = [add_nitrogen_charges(m) for m in mols]
-        except:
-            print("pos 3d was selected, cannot read .sdf from --mols argument")
-            raise Exception
-    
     active_node_specs = [
         n for n in node_features
         if node_features_active.get(n.name, False)

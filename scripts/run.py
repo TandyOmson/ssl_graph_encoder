@@ -145,7 +145,6 @@ class Objective:
         self.dataloader = DataLoader(dataset, 
                                 batch_size=config["pretrain"]["batch_size"], 
                                 shuffle=True, 
-                                num_workers=config["pretrain"]["num_workers"]
                                 )
 
         # split dataset for finetuning, remake loaders
