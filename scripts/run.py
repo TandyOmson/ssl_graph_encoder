@@ -92,7 +92,7 @@ class Objective:
                      embeddings=embeddings, 
                      labels=labelsout
                      )
-            results["finetune"] = metrics
+            results["finetune"] = finetune_encoder_stats
             log.debug("FINETUNE EMBEDDING STATS:\n" + pprint.pformat(finetune_encoder_stats, width=1))
             metrics = self.evaluate_model(classification=self.classification)
             save_full_model(f"{config['datadir']}/models/{self.base_name}_model.pt",
@@ -205,7 +205,7 @@ def setup_logging(log_dir):
     """ configure logging
     """
     log = logging.getLogger()
-    log.setLevel(logging.INFO)
+    log.setLevel(logging.DEBUG)
     
     try:
         log_dir.mkdir(parents=False, exist_ok=False)
