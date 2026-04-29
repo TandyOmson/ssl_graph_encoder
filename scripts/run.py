@@ -24,7 +24,7 @@ from utils.evaluate_embeddings import supervised_embedding_eval, unsupervised_em
 from training.pretrain import build_pretrain_encoder, PretrainTrainer
 from training.finetune import build_finetune_model, FinetuneTrainer
 from utils.tuning_helpers import apply_search_space, BestTrialCallback, LogDistributionsOnce, log_trial_metrics_and_params
-from utils.model_io import save_pretrained_encoder, save_full_model
+from utils.model_io import save_pretrained_encoder, save_full_model, load_pretrained_encoder
 
 class Objective:
     """ Manual process development for graph model
@@ -80,6 +80,14 @@ class Objective:
                                     config,
                                     #extra={"ridge_rmse":results["pretrain"]["ridge_rmse"]},
                                     )
+        # if there is no pretraining, a trained encoder file is expected
+        else:
+            if config["trained_encoder_file"] is not None:
+                config["trained_encoder_file"] = Path(["trained_encoder_file"])
+            else:
+                raise FileNotFoundError
+            
+            self.encoder, payload = load_pretrained_encoder(config["trained_encoder_file"])
 
         if config["finetune"]:
             self.build_model(config)
