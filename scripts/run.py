@@ -190,6 +190,10 @@ class Objective:
         """
         spread_mean, spread_median, dist_cv = unsupervised_embedding_eval(embeddings)
         
+        # Check for missing labels
+        if np.isnan(labels).any():
+            return {"spread_mean" : spread_mean, "spread_median" : spread_median, "dist_csv" : dist_cv}
+
         if classification:
             ridge_acc, ridge_f1, knn_acc, knn_f1 = supervised_embedding_eval_classification(embeddings, labels)
             return {"ridge_acc" : ridge_acc, "ridge_f1": ridge_f1, "knn_acc" : knn_acc, "knn_f1" : knn_f1,
