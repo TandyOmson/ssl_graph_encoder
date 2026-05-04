@@ -15,10 +15,10 @@ sys.path.append(str(Path(__file__).resolve().parents[1] / "src"))
 import torch
 from torch_geometric.loader import DataLoader
 
-from src.utils.data_preprocessing import smi_to_mol, mol_to_graph, MoleculeDataset, split_dataset
-from src.training.pretrain import create_pretrain_encoder, pretrain
-from src.training.finetune import create_finetune_model, finetune
-from src.utils.evaluate_embeddings import supervised_embedding_eval, unsupervised_embedding_eval, evaluate_full_model, encoder_embeddings_out
+from ssl_graph_encoder.utils.data_preprocessing import smi_to_mol, mol_to_graph, MoleculeDataset, split_dataset
+from ssl_graph_encoder.training.pretrain import create_pretrain_encoder, pretrain
+from ssl_graph_encoder.training.finetune import create_finetune_model, finetune
+from ssl_graph_encoder.utils.evaluate_embeddings import supervised_embedding_eval, unsupervised_embedding_eval, evaluate_full_model, encoder_embeddings_out
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)

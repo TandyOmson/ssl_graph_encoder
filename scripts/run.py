@@ -19,12 +19,12 @@ from torch_geometric.datasets import TUDataset
 import optuna
 
 # form the install sll_graph_encoder package
-from utils.data_preprocessing import MoleculeDataset, split_dataset
-from utils.evaluate_embeddings import supervised_embedding_eval, unsupervised_embedding_eval, evaluate_full_model, encoder_embeddings_out, supervised_embedding_eval_classification, evaluate_full_model_classification
-from training.pretrain import build_pretrain_encoder, PretrainTrainer
-from training.finetune import build_finetune_model, FinetuneTrainer
-from utils.tuning_helpers import apply_search_space, BestTrialCallback, LogDistributionsOnce, log_trial_metrics_and_params
-from utils.model_io import save_pretrained_encoder, save_full_model, load_pretrained_encoder
+from ssl_graph_encoder.utils.data_preprocessing import MoleculeDataset, split_dataset
+from ssl_graph_encoder.utils.evaluate_embeddings import supervised_embedding_eval, unsupervised_embedding_eval, evaluate_full_model, encoder_embeddings_out, supervised_embedding_eval_classification, evaluate_full_model_classification
+from ssl_graph_encoder.training.pretrain import build_pretrain_encoder, PretrainTrainer
+from ssl_graph_encoder.training.finetune import build_finetune_model, FinetuneTrainer
+from ssl_graph_encoder.utils.tuning_helpers import apply_search_space, BestTrialCallback, LogDistributionsOnce, log_trial_metrics_and_params
+from ssl_graph_encoder.utils.model_io import save_pretrained_encoder, save_full_model, load_pretrained_encoder
 
 class Objective:
     """ Manual process development for graph model

@@ -7,9 +7,9 @@
 from tqdm import trange
 
 from abc import ABC, abstractmethod
-from models.ssl.base.projection import ProjectionHead
-from models.ssl.base.augmentation import ViewAugmentor
-from models.ssl.base.loss import ContrastiveLoss
+from ssl_graph_encoder.models.ssl.base.projection import ProjectionHead
+from ssl_graph_encoder.models.ssl.base.augmentation import ViewAugmentor
+from ssl_graph_encoder.models.ssl.base.loss import ContrastiveLoss
 
 class ContrastiveSSL(ABC):
     def __init__(self, 

@@ -4,7 +4,7 @@ Abstract base class is the outline
 Can mainly import models from torch_geometric.nn.models
 """
 
-from models.encoders.base import GraphEncoder
+from ssl_graph_encoder.models.encoders.base import GraphEncoder
 from torch_geometric.nn.models import SchNet
 from torch_geometric.nn import global_mean_pool, global_add_pool
 import torch

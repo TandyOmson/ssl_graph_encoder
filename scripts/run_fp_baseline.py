@@ -7,7 +7,7 @@ import numpy as np
 from rdkit import Chem
 from rdkit.Chem import rdFingerprintGenerator
 
-from src.utils.evaluate_embeddings import supervised_embedding_eval, unsupervised_embedding_eval
+from ssl_graph_encoder.utils.evaluate_embeddings import supervised_embedding_eval, unsupervised_embedding_eval
 
 datadir = "/home/andyt/DProjects/Dself_sup_graph_learning/molecule_embedding_proj/data"
 

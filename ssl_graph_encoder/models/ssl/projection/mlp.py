@@ -1,4 +1,4 @@
-from models.ssl.base.projection import ProjectionHead
+from ssl_graph_encoder.models.ssl.base.projection import ProjectionHead
 
 import torch
 import torch.nn as nn

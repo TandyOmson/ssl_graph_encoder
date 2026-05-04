@@ -1,4 +1,4 @@
-from models.ssl.base.loss import ContrastiveLoss
+from ssl_graph_encoder.models.ssl.base.loss import ContrastiveLoss
 import torch
 
 class InfoNCE(ContrastiveLoss):

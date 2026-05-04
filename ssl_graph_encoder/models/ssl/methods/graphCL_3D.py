@@ -4,10 +4,10 @@ torch_geometric implementation of GraphCL
 import torch
 from torch_geometric.data import InMemoryDataset
 from collections import defaultdict
-from models.ssl.base.ssl import ContrastiveSSL
-from models.ssl.projection.mlp import MLP
-from models.ssl.augmentation.conf_views_3d import AlternativeConformer
-from models.ssl.loss.nt_xent import InfoNCE
+from ssl_graph_encoder.models.ssl.base.ssl import ContrastiveSSL
+from ssl_graph_encoder.models.ssl.projection.mlp import MLP
+from ssl_graph_encoder.models.ssl.augmentation.conf_views_3d import AlternativeConformer
+from ssl_graph_encoder.models.ssl.loss.nt_xent import InfoNCE
 
 class GraphCL(ContrastiveSSL):
     def __init__(self, 

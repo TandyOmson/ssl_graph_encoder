@@ -1,7 +1,7 @@
 """ Alternative views are extra higher energy conformers of a molecule
 """
 
-from models.ssl.base.augmentation import ViewAugmentor
+from ssl_graph_encoder.models.ssl.base.augmentation import ViewAugmentor
 import random
 import copy
 

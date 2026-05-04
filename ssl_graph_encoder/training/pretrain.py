@@ -4,7 +4,7 @@
 import logging
 import warnings
 
-from training.training_helpers import load_class, filter_class_config
+from ssl_graph_encoder.training.training_helpers import load_class, filter_class_config
 
 log = logging.getLogger(__name__)
 

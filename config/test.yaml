@@ -12,21 +12,21 @@ device: cpu # cuda or cpu, default cpu
 classification: True
 
 encoder:
-  class_path: models.encoders.dig_encoder.digEncoder
+  class_path: ssl_graph_encoder.models.encoders.dig_encoder.digEncoder
   embed_dim: 128
   kwargs:
     gnn: gcn
     num_layers: 3
 
 ssl_nn:
-  class_path: models.ssl.methods.dig_graphCL.GraphCL
+  class_path: ssl_graph_encoder.models.ssl.methods.dig_graphCL.GraphCL
   kwargs:
     aug_1: dropN
     aug_2: subgraph
     aug_ratio: 0.2
 
 prediction_head:
-  class_path: models.pred_heads.classification_head.ClassificationHead
+  class_path: ssl_graph_encoder.models.pred_heads.classification_head.ClassificationHead
   kwargs:
     hidden_dim : 128
     num_layers: 5

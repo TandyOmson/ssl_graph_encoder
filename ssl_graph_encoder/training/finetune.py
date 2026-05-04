@@ -3,7 +3,7 @@
 import logging
 from tqdm import trange
 
-from training.training_helpers import load_class, filter_class_config, EarlyStoppingCallback, ReportMetricsCallback
+from ssl_graph_encoder.training.training_helpers import load_class, filter_class_config, EarlyStoppingCallback, ReportMetricsCallback
 
 import torch
 import torch.nn as nn

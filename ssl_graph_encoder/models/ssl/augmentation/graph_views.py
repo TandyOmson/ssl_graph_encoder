@@ -2,7 +2,7 @@
 dig.sslgraph.method.contrastive.views_fn
 """
 
-from models.ssl.base.augmentation import ViewAugmentor
+from ssl_graph_encoder.models.ssl.base.augmentation import ViewAugmentor
 from dig.sslgraph.method.contrastive.views_fn import EdgePerturbation, NodeAttrMask, UniformSample, RWSample
 
 class DigEdgePerturbation(ViewAugmentor):
