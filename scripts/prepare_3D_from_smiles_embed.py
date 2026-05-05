@@ -1,4 +1,6 @@
-""" Prepares a graph dataset from SMILES (with or without labels)
+""" DEPRECATED: use prepare_dataset_save_config.py
+
+ Prepares a graph dataset from SMILES (with or without labels)
     - Load Graph Specification
     - Load SMILES
     - Convert to rdkit molecule objects

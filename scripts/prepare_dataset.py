@@ -1,4 +1,6 @@
-""" Prepares a graph dataset from SMILES (with or without labels)
+""" DEPRECATED: Use prepare_dataset_save_config.py 
+
+Prepares a graph dataset from SMILES (with or without labels)
     Takes the format of an InMemoryDataset as defined in torch_geometric
 
     - Load Graph Specification (and label spec if relevant)

@@ -13,7 +13,7 @@ def save_pretrained_encoder(path, encoder, config, extra=None):
     payload = {
         "model": "pretrained_encoder",
         "encoder_class_path": config["encoder"]["class_path"],
-        "encoder_kwargs": {k: v for k, v in config["encoder"].items() if k != "class_path"},
+        "encoder_kwargs": {k: v for k, v in config["encoder"].items() if k != "class_path" and k != "embed_dim"},
         "embed_dim": config["encoder"]["embed_dim"],
         "feat_dim": config["feat_dim"],
         "state_dict": encoder.state_dict(),
@@ -29,7 +29,7 @@ def load_pretrained_encoder(path, map_location="cpu"):
     encoder = encoder_cls(
         payload["feat_dim"],
         payload["embed_dim"],
-        **payload["encoder_kwargs"]
+        **payload["encoder_kwargs"]["kwargs"]
     )
     encoder.load_state_dict(payload["state_dict"], strict=True)
     encoder.eval()
