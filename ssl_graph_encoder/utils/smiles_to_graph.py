@@ -6,7 +6,98 @@ import numpy as np
 import torch
 from rdkit import Chem
 from rdkit.Chem import AllChem
+from rdkit.Chem import rdmolfiles
 from torch_geometric.data import Data
+
+def bond_order_sum(atom):
+    return sum(b.GetBondTypeAsDouble() for b in atom.GetBonds())
+
+def sanitize_for_charges(m):
+    m.UpdatePropertyCache(strict=False)
+    problems = Chem.DetectChemistryProblems(m)
+
+    if not problems:
+        Chem.SanitizeMol(m)
+        return m
+
+    for p in problems:
+        if p.GetType() != 'AtomValenceException':
+            continue
+
+        at = m.GetAtomWithIdx(p.GetAtomIdx())
+        Z = at.GetAtomicNum()
+        q = at.GetFormalCharge()
+        bos = bond_order_sum(at)
+
+        # --------------------
+        # POSITIVE CHARGES
+        # --------------------
+
+        # Nitrogen: ammonium / pyridinium
+        if Z == 7 and q == 0:
+            # typical neutral N valence ≤ 3
+            if bos > 3:
+                at.SetFormalCharge(1)
+
+        # Phosphorus: phosphonium
+        elif Z == 15 and q == 0:
+            # neutral P typically valence 3 or 5
+            if bos > 5:
+                at.SetFormalCharge(1)
+            elif bos > 3:
+                at.SetFormalCharge(1)
+
+        # Sulfur: sulfonium
+        elif Z == 16 and q == 0:
+            # neutral S typically 2 or 6
+            if bos > 2 and bos <= 4:
+                at.SetFormalCharge(1)
+
+        # --------------------
+        # NEGATIVE CHARGES
+        # --------------------
+
+        # Oxygen: carboxylate, phenolate, phosphate
+        elif Z == 8 and q == 0:
+            # single-bonded O with one neighbour
+            if bos == 1:
+                at.SetFormalCharge(-1)
+
+        # Nitrogen anion (rare, but occurs)
+        elif Z == 7 and q == 0:
+            if bos <= 2:
+                at.SetFormalCharge(-1)
+
+        # Sulfur anion: thiolate
+        elif Z == 16 and q == 0:
+            if bos == 1:
+                at.SetFormalCharge(-1)
+
+        # Halides
+        elif Z in (9, 17, 35, 53) and q == 0:
+            if bos == 0:
+                at.SetFormalCharge(-1)
+
+    Chem.SanitizeMol(m)
+    return m
+
+def smiles_to_mol(smi, allow_charges=True):
+    if not allow_charges:
+        m = Chem.MolFromSmiles(smi)
+        m = Chem.AddHs(mol)
+        
+    else:
+        params = rdmolfiles.SmilesParserParams()
+        params.removeHs = False
+        params.sanitize = False
+    
+        m = Chem.MolFromSmiles(smi, params)
+        m = sanitize_for_charges(m)
+    
+    if m is None:
+        raise ValueError("SMILES parse failed")
+
+    return m
 
 # helpers to serialise RDKit enums
 _HYB_STR_TO_ENUM = {str(v): v for v in [
@@ -261,14 +352,6 @@ class SmilesToGraph:
             fitted_vocabs=fitted_vocabs,
         )
 
-    def smiles_to_mol(self, smi: str) -> Chem.Mol:
-        mol = Chem.MolFromSmiles(smi)
-        if mol is None:
-            raise ValueError(f"RDKit failed to parse SMILES: {smi}")
-        if self.add_hs:
-            mol = Chem.AddHs(mol)
-        return mol
-
     def mol_to_graph(self, mol: Chem.Mol, *, conf_id: int = 0) -> Data:
         # node features
         if self.atom_specs:
@@ -334,7 +417,7 @@ class SmilesToGraph:
         where g0 is the lowest-energy conformer graph (or just the single graph),
         and conf_pool are remaining conformers (possibly empty).
         """
-        mol = self.smiles_to_mol(smi)
+        mol = smiles_to_mol(smi)
 
         conf_ids = [0]
         if self.use_3d or self.max_confs > 1:
