@@ -34,16 +34,14 @@ class ContrastiveSSL(ABC):
                  encoder, 
                  data_loader, 
                  optimizer, 
-                 epochs, 
+                 epochs,
+                 device,
                  ):
         """ Runs self supervised pretraining on the encoder
             Must yield the encoder
         """
         encoder.train()
         self.projector.train()
-
-        device = next(encoder.parameters(), None)
-        device = device.device if device is not None else torch.device("cpu")
 
         if self.projector is not None:
             self.projector = self.projector.to(device)

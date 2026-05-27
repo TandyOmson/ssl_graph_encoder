@@ -55,7 +55,7 @@ class PretrainTrainer:
                                     message="Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.", 
                                     category=UserWarning
                                     )
-            for _ in graph_encoder_ssl.ssl.pretrain(graph_encoder_ssl.encoder, dataloader, optimizer, epochs=self.epochs):
+            for _ in graph_encoder_ssl.ssl.pretrain(graph_encoder_ssl.encoder, dataloader, optimizer, self.epochs, self.device):
                 pass
 
         return graph_encoder_ssl.encoder

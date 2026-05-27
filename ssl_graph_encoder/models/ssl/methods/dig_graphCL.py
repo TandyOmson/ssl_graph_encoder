@@ -59,7 +59,8 @@ class GraphCL(Contrastive):
                                       proj='MLP', # removed after pretraining
                                       )
 
-    def pretrain(self, encoders, data_loader, optimizer, epochs, per_epoch_out=False):
+    def pretrain(self, encoders, data_loader, optimizer, epochs, device, per_epoch_out=False):
+        self.device = device
         # GraphCL removes projection heads after pre-training
         for enc, proj in super(GraphCL, self).train(encoders, data_loader,
                                                     optimizer, epochs, per_epoch_out):

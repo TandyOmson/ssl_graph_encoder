@@ -102,6 +102,7 @@ class FinetuneTrainer:
                 val_loss = 0.0
                 with torch.no_grad():
                     for data in val_loader:
+                        data = data.to(self.device)
                         pred = model(data)
                         val_loss += criterion(pred, data.y.float())
                 val_loss /= len(val_loader.dataset)
