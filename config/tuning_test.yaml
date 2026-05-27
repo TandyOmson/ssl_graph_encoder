@@ -1,0 +1,75 @@
+# TUNING PASS 1: Start with reasonable defaults and run different encoder gnn and self_sup_nn, and loss associated with self_sup_nn
+smi_file: data/raw/hydros_minimal.smi
+affins_csv: data/raw/vinardo_affins.csv
+
+outdir: logs/tuning_test # basic results, logging
+datadir: data  # processed data, checkpoints, models
+
+run_name: tuning_test # determines output names
+objective: rmse
+device: cpu # cuda or cpu, default cpu
+
+encoder:
+  class_path: models.encoders.encoder.digEncoder
+  embed_dim: 64
+  kwargs:
+    num_layers: 5
+
+ssl_nn:
+  class_path: 
+  kwargs:
+
+    # GraphCL
+    aug1: maskN
+    aug2: dropN
+    aug_ratio: 0.2
+
+    # GRACE
+    dropE_rate_1: 0.2
+    dropE_rate_2: 0.2
+    maskN_rate_1: 0.2
+    maskN_rate_2: 0.2
+
+regression_head:
+  class_path: models.reg_heads.regression_head.RegressionHead
+  kwargs:
+    hidden_dim : 256
+    num_layers: 3
+    dropout: 0.1
+    activation: relu
+    use_layernorm: True
+
+pretrain:
+  batch_size: 64
+  num_workers: 4
+  epochs: 2
+  optimizer:
+    class_path: torch.optim.Adam
+    kwargs:
+      lr: 1.0e-4
+
+finetune:
+  freeze_encoder: False
+  batch_size: 64
+  epochs: 2
+  optimizer:
+    class_path: torch.optim.AdamW
+    kwargs:
+      lr: 1.0e-3
+      weight_decay: 1.0e-4
+  criterion:
+    class_path: torch.nn.MSELoss
+    kwargs: {}
+
+tuning:
+  run_tuning: True
+  n_trials: 2
+  
+  search_space:
+    - name: encoder.gnn
+      type: categorical
+      choices: [gcn, gin]
+
+    - name: ssl_nn.class_path
+      type: categorical
+      choices: [dig.sslgraph.method.GraphCL]

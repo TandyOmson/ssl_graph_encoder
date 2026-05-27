@@ -11,6 +11,15 @@ from scipy.stats import spearmanr
 from scipy.spatial.distance import pdist
 import numpy as np
 
+
+def _get_module_device(module):
+    first_param = next(module.parameters(), None)
+    return first_param.device if first_param is not None else torch.device("cpu")
+
+
+def _batch_to_device(batch, device):
+    return batch.to(device) if hasattr(batch, "to") else batch
+
 def local_spearman(embeddings, labels, k=100):
     """
     Compute Spearman correlation between embedding distances and activity differences
@@ -91,10 +100,12 @@ def evaluate_full_model(model, val_loader):
     """ Evaluate RMSE and R2 of the full model on the test set
     """
     model.eval()
+    device = _get_module_device(model)
     all_preds = []
     all_labels = []
     with torch.no_grad():
         for data in val_loader:
+            data = _batch_to_device(data, device)
             preds = model(data)
             all_preds.append(preds.cpu().numpy())
             all_labels.append(data.y.cpu().numpy())
@@ -110,10 +121,12 @@ def encoder_embeddings_out(trained_encoder, dataloader):
     """ Extract embeddings from the trained encoder, save them as npy 
     """
     trained_encoder.eval()
+    device = _get_module_device(trained_encoder)
     embeddings = []
     labels = []
     with torch.no_grad():
         for batch in dataloader:
+            batch = _batch_to_device(batch, device)
             batch_embeddings = trained_encoder(batch)
             embeddings.append(batch_embeddings)
             labels.append(batch.y)
@@ -165,10 +178,12 @@ def evaluate_full_model_classification(model, val_loader):
     """ Evaluate accuaracy and F1 of the full model on the test set
     """
     model.eval()
+    device = _get_module_device(model)
     all_preds = []
     all_labels = []
     with torch.no_grad():
         for data in val_loader:
+            data = _batch_to_device(data, device)
             logits = model(data)
 
             # binary 

@@ -253,6 +253,7 @@ log = logging.getLogger(__name__)
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", default="config/defaults.yaml", help="Path to config file")
+    parser.add_argument("--device", default="cpu", help="Device (cpu or cuda)")
     args = parser.parse_args()
 
     with open(args.config, "r") as f:
@@ -266,18 +267,18 @@ if __name__ == "__main__":
 
     setup_logging(config["outdir"])
 
-    if config["device"] == "cuda":
+    if args.device == "cuda":
         if torch.cuda.is_available():
             device = torch.device("cuda")
-            log.info("device is cuda")
+            log.info(f"device is cuda ({torch.cuda.get_device_name(device.index)})")
         else:
-            log.warning("cuda selected, put not available, defaulting to cpu")
+            log.warning("cuda selected but CUDA is not available; defaulting to cpu")
             device = torch.device("cpu")
-            torch.cuda.is_available = lambda: False
     else:
         device = torch.device("cpu")
         log.info("device is cpu")
-        torch.cuda.is_available = lambda: False
+
+    config["device"] = device.type
 
     # single baseline run
     if not config.get("tuning", None).get("run_tuning", None):

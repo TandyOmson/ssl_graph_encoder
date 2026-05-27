@@ -1,15 +1,15 @@
 # Default setup
-datafile: data/raw/hydros_minimal/hydros_minimal.pt
-download: True # overrides datafile, retrieves from available TUDatasets
+datafile: data/datasets/example/hydros_minimal.pt
+download: False # overrides datafile, retrieves from available TUDatasets
 download_name: NCI1
 
-outdir: logs/test # basic results, logging
+outdir: logs/test_model # basic results, logging
 datadir: data  # processed data, checkpoints, models
 
-run_name: test # determines output names
-objective: accuracy
+run_name: test_model # determines output names
+objective: rmse
 device: cpu # cuda or cpu, default cpu
-classification: True
+classification: False
 
 encoder:
   class_path: ssl_graph_encoder.models.encoders.dig_encoder.digEncoder
@@ -53,7 +53,7 @@ finetune:
       lr: 1.0e-3
       weight_decay: 1.0e-4
   criterion:
-    class_path: torch.nn.BCEWithLogitsLoss # default MSELoss for reg or BCEWithLogitsLoss for class
+    class_path: torch.nn.MSELoss # default MSELoss for reg or BCEWithLogitsLoss for class
     kwargs: {}
 
 tuning:

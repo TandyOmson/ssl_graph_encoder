@@ -1,0 +1,57 @@
+# Default setup
+datafile: data/datasets/FreeSolv-0.51/processed/freesolv.pt
+download: False # overrides datafile, retrieves from available TUDatasets
+download_name: NCI1
+
+outdir: logs/test_3d # basic results, logging
+datadir: data  # processed data, checkpoints, models
+
+run_name: test_3d # determines output names
+objective: rmse
+device: cpu # cuda or cpu, default cpu
+classification: False
+
+encoder:
+  class_path: models.encoders.pyG_encoders_3D.SchNetEncoder
+  embed_dim: 128
+  kwargs:
+    num_interactions: 3 # number of interaction blocks (series of layers)
+    
+ssl_nn:
+  class_path: models.ssl.methods.graphCL_3D.GraphCL
+  kwargs:
+    other_confs_file: data/datasets/FreeSolv-0.51/processed/freesolv_additional_confs.pt
+
+prediction_head:
+  class_path: models.pred_heads.regression_head.RegressionHead
+  kwargs:
+    hidden_dim : 128
+    num_layers: 3
+    dropout: 0.1
+    activation: relu
+    use_layernorm: True
+
+pretrain:
+  batch_size: 256
+  epochs: 300
+  optimizer:
+    class_path: torch.optim.Adam
+    kwargs:
+      lr: 1.0e-4
+
+finetune:
+  freeze_encoder: False
+  batch_size: 32
+  epochs: 200
+  optimizer:
+    class_path: torch.optim.AdamW
+    kwargs:
+      lr: 1.0e-4
+      weight_decay: 1.0e-4
+  criterion:
+    class_path: torch.nn.MSELoss # default MSELoss for reg or BCEWithLogitsLoss for class
+    kwargs: {}
+
+tuning:
+  run_tuning: False
+      

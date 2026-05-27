@@ -4,6 +4,7 @@
     - Projection heads for tranforming from encoded representations of views to latent space where constrastive objective is calculated
     - Contrastive loss
 """
+import torch
 from tqdm import trange
 
 from abc import ABC, abstractmethod
@@ -41,6 +42,15 @@ class ContrastiveSSL(ABC):
         encoder.train()
         self.projector.train()
 
+        device = next(encoder.parameters(), None)
+        device = device.device if device is not None else torch.device("cpu")
+
+        if self.projector is not None:
+            self.projector = self.projector.to(device)
+
+        if hasattr(self.loss_fn, "to"):
+            self.loss_fn = self.loss_fn.to(device)
+
         # MUST ADD PROJECTOR TO OPTIMIZER PARAMS FOR THEM TO BE TRAINED
         if self.projector is not None:
             optimizer.add_param_group({
@@ -49,17 +59,20 @@ class ContrastiveSSL(ABC):
 
         with trange(epochs) as t:
             for epoch in t:
-                train_loss = 0
+                train_loss = 0.0
                 t.set_description('Pretraining: epoch %d' % (epoch+1))
                 for batch in data_loader:
+                    if hasattr(batch, "to"):
+                        batch = batch.to(device)
+
                     loss = self.training_step(batch, encoder)
 
                     optimizer.zero_grad()
                     loss.backward()
                     optimizer.step()
 
-                    train_loss += loss
-                train_loss /= len(data_loader.dataset)
+                    train_loss += loss.item() if isinstance(loss, torch.Tensor) else loss
+                train_loss /= len(data_loader)
                 t.set_postfix(loss=f'{train_loss:.4f}')
 
                 # encoder must be yielded to remove projection head
