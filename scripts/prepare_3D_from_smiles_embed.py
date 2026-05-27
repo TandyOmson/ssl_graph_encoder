@@ -121,6 +121,7 @@ if __name__ == "__main__":
     parser.add_argument("--output", type=str, required=True, help="Path to output .pt file to save dataset in")
     parser.add_argument("--conf_out", type=str, required=True, help="Path to output .pt file to save graphs of conformers 2 to n")
     parser.add_argument("--n_confs", type=int, required=True, help="Total number of conformers to generate")
+    parser.add_argument("--save_every", type=int, required=False, help="For large files, save embedded structures to output every n molecules")
 
     args = parser.parse_args()
     
@@ -275,32 +276,40 @@ if __name__ == "__main__":
             g.sample_id = sample_id # save flattened, load by sample_id later
             graphs_conf_pool.append(g)
 
-    print(f"loading labesl from {args.labels}")
-    # load labels
-    labels_df = pd.read_csv(args.labels, index_col=0)
-    if labels_df.index[0] == 1:
-        labels_df.index = labels_df.index - 1
+        if args.save_every is not None and sample_id % args.save_every == 0:
+            data, slices = InMemoryDataset.collate(graphs)
+            torch.save((data, slices), args.output)
 
-    # remove failed samples
-    labels_df = labels_df.loc[~labels_df.index.isin(failure_ids)] 
-    label_map = labels_df["labels"].to_dict()         
-    labeled_ids = set(label_map.keys())
+            data, slices = InMemoryDataset.collate(graphs_conf_pool)
+            torch.save((data, slices), args.conf_out)
 
-    # remove graph with no labels
-    graphs = [g for g in graphs if g.sample_id in labeled_ids]
-    graphs_conf_pool = [
-        g for g in graphs_conf_pool if g.sample_id in labeled_ids
-    ]
-
-    # attach labels
-    for g in graphs:
-        g.y = torch.tensor(label_map[g.sample_id], dtype=torch.float32).view(1)
-
-    assert len({g.sample_id for g in graphs}) == len(graphs)
-    
-    ys = [data.y for data in graphs]
-    assert all(y.shape == ys[0].shape for y in ys)
-    assert all(y.dtype == ys[0].dtype for y in ys)
+    if args.labels is not None:
+        print(f"loading labels from {args.labels}")
+        # load labels
+        labels_df = pd.read_csv(args.labels, index_col=0)
+        if labels_df.index[0] == 1:
+            labels_df.index = labels_df.index - 1
+        
+        # remove failed samples
+        labels_df = labels_df.loc[~labels_df.index.isin(failure_ids)] 
+        label_map = labels_df["labels"].to_dict()         
+        labeled_ids = set(label_map.keys())
+        
+        # remove graph with no labels
+        graphs = [g for g in graphs if g.sample_id in labeled_ids]
+        graphs_conf_pool = [
+            g for g in graphs_conf_pool if g.sample_id in labeled_ids
+        ]
+        
+        # attach labels
+        for g in graphs:
+            g.y = torch.tensor(label_map[g.sample_id], dtype=torch.float32).view(1)
+        
+        assert len({g.sample_id for g in graphs}) == len(graphs)
+        
+        ys = [data.y for data in graphs]
+        assert all(y.shape == ys[0].shape for y in ys)
+        assert all(y.dtype == ys[0].dtype for y in ys)
 
     data, slices = InMemoryDataset.collate(graphs)
     torch.save((data, slices), args.output)

@@ -41,9 +41,10 @@ class ContrastiveSSL(ABC):
             Must yield the encoder
         """
         encoder.train()
-        self.projector.train()
+        encoder = encoder.to(device)
 
         if self.projector is not None:
+            self.projector.train()
             self.projector = self.projector.to(device)
 
         if hasattr(self.loss_fn, "to"):

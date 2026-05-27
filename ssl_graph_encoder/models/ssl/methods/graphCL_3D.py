@@ -43,8 +43,9 @@ class GraphCL(ContrastiveSSL):
         view_1 = self.aug_1(data)
         view_2 = self.aug_2(data)
 
-        h1 = encoder(view_1)
-        h2 = encoder(view_2)
+        device = next(encoder.parameters()).device
+        h1 = encoder(view_1.to(device))
+        h2 = encoder(view_2.to(device))
 
         z1 = self.projector(h1)
         z2 = self.projector(h2)
