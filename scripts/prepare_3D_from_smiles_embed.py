@@ -115,6 +115,8 @@ def get_vocab(mols):
     return vocab
 
 if __name__ == "__main__":
+    print("DEPRECATED: use prepare_dataset_save_config.py instead")
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--labels", type=str, required=False, help="Path to .csv file with columns as labels, index is sample index")
     parser.add_argument("--smi", type=str, required=True, help="Path to file with SMILES")

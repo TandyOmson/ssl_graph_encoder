@@ -84,7 +84,7 @@ def sanitize_for_charges(m):
 def smiles_to_mol(smi, allow_charges=True):
     if not allow_charges:
         m = Chem.MolFromSmiles(smi)
-        m = Chem.AddHs(mol)
+        m = Chem.AddHs(m)
         
     else:
         params = rdmolfiles.SmilesParserParams()
@@ -93,6 +93,7 @@ def smiles_to_mol(smi, allow_charges=True):
     
         m = Chem.MolFromSmiles(smi, params)
         m = sanitize_for_charges(m)
+        m = Chem.AddHs(m)
     
     if m is None:
         raise ValueError("SMILES parse failed")
