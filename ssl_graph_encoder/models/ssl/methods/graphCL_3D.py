@@ -12,12 +12,13 @@ from ssl_graph_encoder.models.ssl.loss.nt_xent import InfoNCE
 class GraphCL(ContrastiveSSL):
     def __init__(self, 
                  encoder_out_dim,
+                 device,
                  other_confs_file=None,
                  ):
         # other_conf_file created in preprocessing and matched to best conformers
         # use scripts/prepare_3D_from_smiles_embed.py
 
-        conf_data, conf_slices = torch.load(other_confs_file)
+        conf_data, conf_slices = torch.load(other_confs_file, map_location=device)
         conf_dataset = InMemoryDataset()
         conf_dataset.data, conf_dataset.slices = conf_data, conf_slices
         
@@ -32,7 +33,7 @@ class GraphCL(ContrastiveSSL):
                       ]
         loss_fn = InfoNCE(temperature=0.5, normalize=True)
 
-        super().__init__(encoder_out_dim, projector, augmentors, loss_fn)
+        super().__init__(encoder_out_dim, device, projector, augmentors, loss_fn)
         if len(self.augmentors) != 2:
             raise NotImplementedError
         self.aug_1 , self.aug_2 = self.augmentors

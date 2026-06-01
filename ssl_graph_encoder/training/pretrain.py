@@ -25,7 +25,7 @@ def build_pretrain_encoder(feat_dim, embed_dim, config):
 
     enc_args = filter_class_config(encoderClass, **config["encoder"]["kwargs"])
     encoder = encoderClass(feat_dim, embed_dim, **enc_args)
-    ssl_args = filter_class_config(sslClass, **config["ssl_nn"]["kwargs"])
+    ssl_args = filter_class_config(sslClass, config["device"], **config["ssl_nn"]["kwargs"])
     ssl = sslClass(encoder.output_dim, **ssl_args)
 
     return GraphTrainLoop(encoder, ssl)

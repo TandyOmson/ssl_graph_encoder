@@ -9,6 +9,7 @@ from ssl_graph_encoder.models.ssl.loss.nt_xent import InfoNCE
 class GraphCL(ContrastiveSSL):
     def __init__(self, 
                  encoder_out_dim,
+                 device,
                  aug_1=None,
                  aug_2=None,
                  aug_ratio=0.1
@@ -20,7 +21,7 @@ class GraphCL(ContrastiveSSL):
                       ]
         loss_fn = InfoNCE(temperature=0.5, normalize=True)
 
-        super().__init__(encoder_out_dim, projector, augmentors, loss_fn)
+        super().__init__(encoder_out_dim, device, projector, augmentors, loss_fn)
         if len(self.augmentors) != 2:
             raise NotImplementedError
         self.aug_1 , self.aug_2 = self.augmentors

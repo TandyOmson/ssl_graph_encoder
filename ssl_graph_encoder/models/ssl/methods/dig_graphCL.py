@@ -15,6 +15,7 @@ class GraphCL(Contrastive):
 
     def __init__(self,
                  dim,
+                 device,
                  aug_1=None,
                  aug_2=None,
                  aug_ratio=0.2,

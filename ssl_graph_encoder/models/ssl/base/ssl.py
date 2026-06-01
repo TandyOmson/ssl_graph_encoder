@@ -15,6 +15,7 @@ from ssl_graph_encoder.models.ssl.base.loss import ContrastiveLoss
 class ContrastiveSSL(ABC):
     def __init__(self, 
                  encoder_out_dim : int,
+                 device: str,
                  projector: ProjectionHead, 
                  augmentors: ViewAugmentor, 
                  loss_fn : ContrastiveLoss,
