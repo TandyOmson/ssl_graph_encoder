@@ -64,8 +64,8 @@ class Objective:
         if config.get("pretrain", False):
             self.build_graph_encoder_ssl(config)
             self.run_pretrain(config)
-            if self.dataloader.dataset[0].y is None:
-                log.warning("No labels found in dataset; skipping supervised embedding evaluation metrics")
+            if self.dataloader.dataset[0].y is None or config["pretrain"].get("ignore_labels", False):
+                log.warning("No labels found in dataset or ignore_labels is True in pretrain; skipping supervised embedding evaluation metrics")
                 embeddings, _ = encoder_embeddings_out(self.encoder, self.dataloader)
                 pretrain_encoder_stats = self.evaluate_encoder_unsupervised_only(embeddings)
                 metrics = pretrain_encoder_stats
