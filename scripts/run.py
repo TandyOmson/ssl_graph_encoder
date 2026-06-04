@@ -61,18 +61,29 @@ class Objective:
 
         results = {}
 
-        if config["pretrain"]:
+        if config.get("pretrain", False):
             self.build_graph_encoder_ssl(config)
             self.run_pretrain(config)
-            embeddings, labelsout = encoder_embeddings_out(self.encoder, self.dataloader)
-            pretrain_encoder_stats = self.evaluate_encoder(embeddings, labelsout, classification=self.classification)
-            metrics = pretrain_encoder_stats # only relevant if not finetuning
+            if self.dataloader.dataset[0].y is None:
+                log.warning("No labels found in dataset; skipping supervised embedding evaluation metrics")
+                embeddings, _ = encoder_embeddings_out(self.encoder, self.dataloader)
+                pretrain_encoder_stats = self.evaluate_encoder_unsupervised_only(embeddings)
+                metrics = pretrain_encoder_stats
 
-            # I/O
-            np.savez(f"{config['datadir']}/processed/{self.base_name}_pretrained.npz",
-                     embeddings=embeddings, 
-                     labels=labelsout
-                     )
+                # I/O
+                np.savez(f"{config['datadir']}/processed/{self.base_name}_pretrained.npz",
+                        embeddings=embeddings,
+                        )
+            else:
+                embeddings, labelsout = encoder_embeddings_out(self.encoder, self.dataloader)
+                pretrain_encoder_stats = self.evaluate_encoder(embeddings, labelsout, classification=self.classification)
+                metrics = pretrain_encoder_stats # only relevant if not finetuning
+
+                # I/O
+                np.savez(f"{config['datadir']}/processed/{self.base_name}_pretrained.npz",
+                        embeddings=embeddings, 
+                        labels=labelsout
+                        )
             results["pretrain"] = metrics
             log.debug("PRETRAIN EMBEDDING STATS:\n" + pprint.pformat(pretrain_encoder_stats, width=1))
             save_pretrained_encoder(f"{config['datadir']}/models/{self.base_name}_pretrained_encoder.pt",
@@ -85,11 +96,11 @@ class Objective:
             if config["trained_encoder_file"] is not None:
                 config["trained_encoder_file"] = Path(["trained_encoder_file"])
             else:
-                raise FileNotFoundError
+                raise FileNotFoundError("Expected trained_encoder_file in config if not pretraining")
             
             self.encoder, payload = load_pretrained_encoder(config["trained_encoder_file"])
 
-        if config["finetune"]:
+        if config.get("finetune", False):
             self.build_model(config)
             self.run_finetune(config)
             embeddings, labelsout = encoder_embeddings_out(self.encoder, self.dataloader)
@@ -157,7 +168,7 @@ class Objective:
 
         # split dataset for finetuning, remake loaders
         train_dataset, val_dataset, test_dataset = split_dataset(dataset, val_frac=0.1, test_frac=0.1)
-        self.train_loader = DataLoader(train_dataset, batch_size=config["finetune"]["batch_size"], shuffle=True)
+        self.train_loader = DataLoader(train_dataset, batch_size=config["pretrain"]["batch_size"], shuffle=True)
         self.val_loader = DataLoader(val_dataset, batch_size=128, shuffle=False)
         self.test_loader = DataLoader(test_dataset, batch_size=128, shuffle=False)    
     
@@ -183,7 +194,14 @@ class Objective:
         finetune_trainer = FinetuneTrainer(self.device, config)
         self.model, self.encoder = finetune_trainer.fit(self.model, self.train_loader, self.val_loader)
         return
-    
+
+    @staticmethod
+    def evaluate_encoder_unsupervised_only(embeddings):
+        """ Evaluate the encoder embedddings using only unsupervised metrics (no labels)
+        """
+        spread_mean, spread_median, dist_cv = unsupervised_embedding_eval(embeddings)
+        return {"spread_mean" : spread_mean, "spread_median" : spread_median, "dist_csv" : dist_cv}
+
     @staticmethod
     def evaluate_encoder(embeddings, labels, classification=False):
         """ Evaludate the encoder embedddings irrespective of any prediction head
@@ -281,9 +299,8 @@ if __name__ == "__main__":
     config["device"] = device.type
 
     # single baseline run
-    if not config.get("tuning", None).get("run_tuning", None):
+    if not config.get("tuning", None):
         log.info("Hyperparameter tuning is OFF")
-        config.pop("tuning")
         objective = Objective(config, device, base_name=config["run_name"])
         score = objective()
 

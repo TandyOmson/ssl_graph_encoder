@@ -129,7 +129,10 @@ def encoder_embeddings_out(trained_encoder, dataloader):
             batch = _batch_to_device(batch, device)
             batch_embeddings = trained_encoder(batch)
             embeddings.append(batch_embeddings)
-            labels.append(batch.y)
+            if batch.y is not None:
+                labels.append(batch.y)
+            else:
+                labels.append(torch.zeros(batch_embeddings.shape[0]))  # dummy labels if not available
     
     embeddings = torch.cat(embeddings)
     labels = torch.cat(labels)
