@@ -120,6 +120,11 @@ class Objective:
                             config,
                             #extra={"rmse":metrics[config["objective"]]}
                             )
+            
+            save_pretrained_encoder(f"{config['datadir']}/models/{self.base_name}_finetuned_encoder.pt",
+                                    self.encoder,
+                                    config,
+                                    )
         
         # if hyperparameter trial, output trial score, other metrics and params to .csv
         if trial is not None:
