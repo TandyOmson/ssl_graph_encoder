@@ -3,20 +3,24 @@
 
 from ssl_graph_encoder.models.ssl.base.augmentation import ViewAugmentor
 import random
-import copy
 
 class AlternativeConformer(ViewAugmentor):
     """ Picks a random conformer from alt_conf_data (already data objects)
     """
-    def __init__(self, alt_conf_dict):
-        self.alt_conf_dict = alt_conf_dict
+    def __init__(self, alt_conf_dict, conf_dataset):
+        self.alt_conf_dict = {
+            int(k): v for k, v in alt_conf_dict.items()
+        }
+        self.conf_dataset = conf_dataset
         
     def aug_func(self, data):        
         conformers = self.alt_conf_dict[int(data.sample_id)]
         # edge where there is only one stable conformer
-        if not conformers:
-            new_data = copy.deepcopy(data)
+        if len(conformers) == 0:
+            new_data = data.clone()
             if 'y' in new_data:
                 del new_data.y
             return new_data
-        return random.choice(conformers)
+        
+        idx = random.choice(conformers)
+        return self.conf_dataset[idx].clone()

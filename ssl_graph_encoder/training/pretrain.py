@@ -46,6 +46,9 @@ class PretrainTrainer:
         """ Construct optimizer from config, train encoder in-place
         """
         graph_encoder_ssl.encoder = graph_encoder_ssl.encoder.to(self.device)
+        # ADD IF STATEMENT HERE LATER
+        dataloader.dataset.aug_1 = graph_encoder_ssl.ssl.aug_1
+        dataloader.dataset.aug_2 = graph_encoder_ssl.ssl.aug_2
 
         optimizer = self.optim_class(graph_encoder_ssl.encoder.parameters(), **self.optim_kwargs)
 

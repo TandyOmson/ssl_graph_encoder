@@ -58,7 +58,7 @@ class ContrastiveSSL(ABC):
                 "params": self.projector.parameters()
             })
 
-        scaler = GradScaler("cuda")
+        scaler = GradScaler(device.type)
         with trange(epochs) as t:
             for epoch in t:
                 train_loss = 0.0
@@ -68,7 +68,7 @@ class ContrastiveSSL(ABC):
                         batch = batch.to(device)
 
                     optimizer.zero_grad(set_to_none=True)
-                    with autocast("cuda"):
+                    with autocast(device.type):
                         loss = self.training_step(batch, encoder)
 
                     scaler.scale(loss).backward()

@@ -64,8 +64,9 @@ class Objective:
         if config.get("pretrain", False):
             self.build_graph_encoder_ssl(config)
             self.run_pretrain(config)
-            if self.dataloader.dataset[0].y is None or config["pretrain"].get("ignore_labels", False):
-                log.warning("No labels found in dataset or ignore_labels is True in pretrain; skipping supervised embedding evaluation metrics")
+            self.prepare_data(config) # Reset the dataloader due to a quirk in pyG where if dataloader.dataset.get sees a list, it will always output a list
+            if config["pretrain"].get("ignore_labels", False) or not hasattr(self.dataloader.dataset[0], 'y'):
+                log.warning("ignore_labels is True in pretrain; skipping supervised embedding evaluation metrics")
                 embeddings, _ = encoder_embeddings_out(self.encoder, self.dataloader)
                 pretrain_encoder_stats = self.evaluate_encoder_unsupervised_only(embeddings)
                 metrics = pretrain_encoder_stats
@@ -169,6 +170,9 @@ class Objective:
         self.dataloader = DataLoader(dataset, 
                                 batch_size=config["pretrain"]["batch_size"], 
                                 shuffle=True, 
+                                num_workers=config["pretrain"].get("loader_worker_num", 4),
+                                pin_memory=True,
+                                persistent_workers=True,
                                 )
 
         # split dataset for finetuning, remake loaders
