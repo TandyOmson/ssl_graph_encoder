@@ -5,6 +5,7 @@
     - Contrastive loss
 """
 import torch
+from torch.amp import autocast, GradScaler
 from tqdm import trange
 
 from abc import ABC, abstractmethod
@@ -57,6 +58,7 @@ class ContrastiveSSL(ABC):
                 "params": self.projector.parameters()
             })
 
+        scaler = GradScaler(device)
         with trange(epochs) as t:
             for epoch in t:
                 train_loss = 0.0
@@ -65,11 +67,13 @@ class ContrastiveSSL(ABC):
                     if hasattr(batch, "to"):
                         batch = batch.to(device)
 
-                    loss = self.training_step(batch, encoder)
+                    optimizer.zero_grad(set_to_none=True)
+                    with autocast(device):
+                        loss = self.training_step(batch, encoder)
 
-                    optimizer.zero_grad()
-                    loss.backward()
-                    optimizer.step()
+                    scaler.scale(loss).backward()
+                    scaler.step(optimizer)
+                    scaler.update()
 
                     train_loss += loss.item() if isinstance(loss, torch.Tensor) else loss
                 train_loss /= len(data_loader)
