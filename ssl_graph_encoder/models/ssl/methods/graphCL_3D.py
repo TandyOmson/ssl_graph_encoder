@@ -18,7 +18,7 @@ class GraphCL(ContrastiveSSL):
         # other_conf_file created in preprocessing and matched to best conformers
         # use scripts/prepare_3D_from_smiles_embed.py
 
-        conf_data, conf_slices = torch.load(other_confs_file, map_location=device)
+        conf_data, conf_slices = torch.load(other_confs_file, map_location="cpu")
         conf_dataset = InMemoryDataset()
         conf_dataset.data, conf_dataset.slices = conf_data, conf_slices
         
