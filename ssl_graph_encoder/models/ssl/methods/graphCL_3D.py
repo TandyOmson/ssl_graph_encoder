@@ -41,8 +41,8 @@ class GraphCL(ContrastiveSSL):
     def training_step(self, data, encoder):
         """ Data may be a batch
         """
-        view_1 = self.aug_1(data)
-        view_2 = self.aug_2(data)
+        view_1 = self.aug_1(data.to("cpu"))
+        view_2 = self.aug_2(data.to("cpu"))
 
         device = next(encoder.parameters()).device
         h1 = encoder(view_1.to(device))
