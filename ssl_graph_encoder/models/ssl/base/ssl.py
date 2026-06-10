@@ -6,7 +6,7 @@
 """
 import torch
 from torch.amp import autocast, GradScaler
-from tqdm import trange
+from tqdm import tqdm, trange
 
 from abc import ABC, abstractmethod
 from ssl_graph_encoder.models.ssl.base.projection import ProjectionHead
@@ -63,7 +63,12 @@ class ContrastiveSSL(ABC):
             for epoch in t:
                 train_loss = 0.0
                 t.set_description('Pretraining: epoch %d' % (epoch+1))
-                for batch in data_loader:
+                
+                for batch in tqdm(
+                            data_loader,
+                            leave=False,                 # don't stack bars
+                            desc=f"Epoch {epoch+1}",
+                    ):
                     if hasattr(batch, "to"):
                         batch = batch.to(device)
 
