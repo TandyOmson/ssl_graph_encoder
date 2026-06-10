@@ -14,9 +14,9 @@ class AlternativeConformer(ViewAugmentor):
         self.conf_dataset = conf_dataset
         
     def aug_func(self, data):        
-        conformers = self.alt_conf_dict[int(data.sample_id)]
-        # edge where there is only one stable conformer
-        if len(conformers) == 0:
+        try:
+            conformers = self.alt_conf_dict[int(data.sample_id)]
+        except KeyError:
             new_data = data.clone()
             if 'y' in new_data:
                 del new_data.y
