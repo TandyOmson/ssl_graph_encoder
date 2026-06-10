@@ -23,4 +23,4 @@ class AlternativeConformer(ViewAugmentor):
             return new_data
         
         idx = random.choice(conformers)
-        return self.conf_dataset[idx].clone()
+        return self.conf_dataset[idx]
