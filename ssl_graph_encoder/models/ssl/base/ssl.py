@@ -4,6 +4,7 @@
     - Projection heads for tranforming from encoded representations of views to latent space where constrastive objective is calculated
     - Contrastive loss
 """
+import logging
 import torch
 from torch.amp import autocast, GradScaler
 from tqdm import tqdm, trange
@@ -12,6 +13,8 @@ from abc import ABC, abstractmethod
 from ssl_graph_encoder.models.ssl.base.projection import ProjectionHead
 from ssl_graph_encoder.models.ssl.base.augmentation import ViewAugmentor
 from ssl_graph_encoder.models.ssl.base.loss import ContrastiveLoss
+
+pretrain_log = logging.getLogger("pretrain")
 
 class ContrastiveSSL(ABC):
     def __init__(self, 
@@ -83,6 +86,7 @@ class ContrastiveSSL(ABC):
                     train_loss += loss.item() if isinstance(loss, torch.Tensor) else loss
                 train_loss /= len(data_loader)
                 t.set_postfix(loss=f'{train_loss:.4f}')
+                pretrain_log.info(f"{epoch}\t{train_loss}")
 
                 # encoder must be yielded to remove projection head
                 yield encoder

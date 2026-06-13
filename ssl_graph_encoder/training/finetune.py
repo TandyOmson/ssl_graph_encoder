@@ -9,6 +9,7 @@ import torch
 import torch.nn as nn
 
 log = logging.getLogger(__name__)
+finetune_log = logging.getLogger("finetune")
 
 class GraphRegressionModel(nn.Module):
     """ Final model class including encoder and regression head
@@ -107,6 +108,7 @@ class FinetuneTrainer:
                         val_loss += criterion(pred, data.y.float())
                 val_loss /= len(val_loader.dataset)
                 t.set_postfix(val_loss=f'{val_loss:.4f}', train_loss=f'{train_loss:.4f}')
+                finetune_log.info(f"{epoch}/t{train_loss}/t{val_loss}")
 
                 if self.use_callbacks:
                     for cb in callbacks:

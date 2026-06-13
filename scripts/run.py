@@ -278,6 +278,26 @@ def setup_logging(log_dir):
     detail_handler.setLevel(logging.DEBUG)
     detail_handler.setFormatter(formatter)
     log.addHandler(detail_handler)
+
+    # pretrain and finetune loggers
+    pretrain_logger = logging.getLogger("pretrain")
+    pretrain_logger.setLevel(logging.INFO)
+
+    data_handler = logging.FileHandler(log_dir / "pretrain.dat", mode="w")
+    data_handler.setFormatter(logging.Formatter("%(message)s"))
+
+    pretrain_logger.addHandler(data_handler)
+    pretrain_logger.propagate = False # prevent duplication to root logs
+
+    finetune_logger = logging.getLogger("finetune")
+    finetune_logger.setLevel(logging.INFO)
+
+    data_handler = logging.FileHandler(log_dir / "finetune.dat", mode="w")
+    data_handler.setFormatter(logging.Formatter("%(message)s"))
+
+    finetune_logger.addHandler(data_handler)
+    finetune_logger.propagate = False # prevent duplication to root logs
+
     return
 
 log = logging.getLogger(__name__)
