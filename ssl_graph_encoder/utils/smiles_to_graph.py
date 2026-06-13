@@ -619,3 +619,36 @@ class SmilesToGraph:
         pairs.sort(key=lambda x: x[1][1])  # energy
         conf_ids = [cid for cid, _ in pairs]
         return conf_ids
+
+def graph_to_rdmol(data):
+    """ This is just for testing purposes
+    """
+    mol = Chem.RWMol()
+
+    mol_idxs = []
+    for z in data.z:
+        atom = Chem.Atom(int(z.item()))
+        idx = mol.AddAtom(atom)
+        mol_idxs.append(idx)
+
+    if hasattr(data, "edge_index"):
+        edge_index = data.edge_index
+        added_bonds = set()
+
+        for i, j in edge_index.t().tolist():
+            key = tuple(sorted((i,j)))
+            if key in added_bonds:
+                continue
+                
+            mol.AddBond(i, j, Chem.BondType.SINGLE)
+            added_bonds.add(key)
+    
+    mol = mol.GetMol()
+
+    conf = Chem.Conformer(mol.GetNumAtoms())
+    for i, pos in enumerate(data.pos):
+        x, y, z = pos.tolist()
+        conf.SetAtomPosition(i, (x, y, z))
+    mol.AddConformer(conf, assignId=True)
+
+    return mol
