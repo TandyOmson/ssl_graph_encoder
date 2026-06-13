@@ -65,6 +65,13 @@ class Objective:
             self.build_graph_encoder_ssl(config)
             self.run_pretrain(config)
             self.prepare_data(config) # Reset the dataloader due to a quirk in pyG where if dataloader.dataset.get sees a list, it will always output a list
+            
+            save_pretrained_encoder(f"{config['datadir']}/models/{self.base_name}_pretrained_encoder.pt",
+                                    self.encoder,
+                                    config,
+                                    #extra={"ridge_rmse":results["pretrain"]["ridge_rmse"]},
+                                    )
+            
             if config["pretrain"].get("ignore_labels", False) or not hasattr(self.dataloader.dataset[0], 'y'):
                 log.warning("ignore_labels is True in pretrain; skipping supervised embedding evaluation metrics")
                 embeddings, _ = encoder_embeddings_out(self.encoder, self.dataloader)
@@ -87,11 +94,6 @@ class Objective:
                         )
             results["pretrain"] = metrics
             log.debug("PRETRAIN EMBEDDING STATS:\n" + pprint.pformat(pretrain_encoder_stats, width=1))
-            save_pretrained_encoder(f"{config['datadir']}/models/{self.base_name}_pretrained_encoder.pt",
-                                    self.encoder,
-                                    config,
-                                    #extra={"ridge_rmse":results["pretrain"]["ridge_rmse"]},
-                                    )
         # if there is no pretraining, a trained encoder file is expected
         else:
             if config["trained_encoder_file"] is not None:
@@ -104,17 +106,7 @@ class Objective:
         if config.get("finetune", False):
             self.build_model(config)
             self.run_finetune(config)
-            embeddings, labelsout = encoder_embeddings_out(self.encoder, self.dataloader)
-            finetune_encoder_stats = self.evaluate_encoder(embeddings, labelsout, classification=self.classification)
-            
-            # I/O
-            np.savez(f"{config['datadir']}/processed/{self.base_name}_finetuned.npz",
-                     embeddings=embeddings, 
-                     labels=labelsout
-                     )
-            results["finetune"] = finetune_encoder_stats
-            log.debug("FINETUNE EMBEDDING STATS:\n" + pprint.pformat(finetune_encoder_stats, width=1))
-            metrics = self.evaluate_model(classification=self.classification)
+
             save_full_model(f"{config['datadir']}/models/{self.base_name}_model.pt",
                             self.model.encoder,
                             self.model.pred_head,
@@ -127,6 +119,19 @@ class Objective:
                                     config,
                                     )
         
+
+            embeddings, labelsout = encoder_embeddings_out(self.encoder, self.dataloader)
+            finetune_encoder_stats = self.evaluate_encoder(embeddings, labelsout, classification=self.classification)
+            
+            # I/O
+            np.savez(f"{config['datadir']}/processed/{self.base_name}_finetuned.npz",
+                     embeddings=embeddings, 
+                     labels=labelsout
+                     )
+            results["finetune"] = finetune_encoder_stats
+            log.debug("FINETUNE EMBEDDING STATS:\n" + pprint.pformat(finetune_encoder_stats, width=1))
+            metrics = self.evaluate_model(classification=self.classification)
+            
         # if hyperparameter trial, output trial score, other metrics and params to .csv
         if trial is not None:
             pretrain_encoder_stats = {f"pretrain_{k}": v for k, v in pretrain_encoder_stats.items()}
