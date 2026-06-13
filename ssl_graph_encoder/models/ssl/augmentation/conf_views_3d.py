@@ -20,7 +20,7 @@ class AlternativeConformer(ViewAugmentor):
         except KeyError:
             # case of only a single conformer, sometimed perturb the data, sometimes return a positive view
             if random.random() < 0.5:
-                eps = random.uniform(0.03, 0.08)
+                eps = random.uniform(0.03, 0.07)
                 new_data = self.perturb_positions(data, eps)
             else:
                 new_data = data.clone()
