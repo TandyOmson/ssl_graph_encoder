@@ -35,15 +35,17 @@ if __name__ == "__main__":
     
     print("generating embeddings")
     embs = []
+    emb_dim = 0
     for count, smi in enumerate(smis):
         print(f"gen mols {count} of {len(smis)}", end="\r")
         try:
             with torch.no_grad():
                 emb = embedder.get_embeddings(smi)
-            embs.append(emb)
+            embs.append(emb[0])
+            emb_dim = len(emb[0])
         except:
             print("embedding failed for", count, smi)
-            traceback.print_exc()
+            embs.append(np.array([np.nan]*emb_dim))
 
     np.save(args.outfile, embs)
 

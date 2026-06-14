@@ -8,6 +8,9 @@ from rdkit import Chem
 from rdkit.Chem import AllChem
 from rdkit.Chem import rdmolfiles
 from torch_geometric.data import Data
+from rdkit import RDLogger
+
+RDLogger.DisableLog('rdApp.*')
 
 def bond_order_sum(atom):
     return sum(b.GetBondTypeAsDouble() for b in atom.GetBonds())
