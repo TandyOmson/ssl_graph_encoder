@@ -117,7 +117,7 @@ def evaluate_full_model(model, val_loader):
     r2 = r2_score(all_labels, all_preds)
     return rmse, r2
 
-def encoder_embeddings_out(trained_encoder, dataloader):
+def encoder_embeddings_out(trained_encoder, dataloader, sample_size=np.inf):
     """ Extract embeddings from the trained encoder, save them as npy 
     """
     trained_encoder.eval()
@@ -126,13 +126,14 @@ def encoder_embeddings_out(trained_encoder, dataloader):
     labels = []
     with torch.no_grad():
         for batch in dataloader:
-            batch = _batch_to_device(batch, device)
-            batch_embeddings = trained_encoder(batch)
-            embeddings.append(batch_embeddings)
-            if batch.y is not None:
-                labels.append(batch.y)
-            else:
-                labels.append(torch.zeros(batch_embeddings.shape[0]))  # dummy labels if not available
+            while len(embeddings) < sample_size:
+                batch = _batch_to_device(batch, device)
+                batch_embeddings = trained_encoder(batch)
+                embeddings.append(batch_embeddings)
+                if batch.y is not None:
+                    labels.append(batch.y)
+                else:
+                    labels.append(torch.zeros(batch_embeddings.shape[0]))  # dummy labels if not available
     
     embeddings = torch.cat(embeddings)
     labels = torch.cat(labels)
