@@ -9,6 +9,9 @@ import torch_geometric
 from torch.utils.data import random_split
 from torch_geometric.data import InMemoryDataset
 
+from ssl_graph_encoder.utils.smiles_to_graph import graph_to_rdmol
+from rdkit import Chem
+
 class MoleculeDataset(InMemoryDataset):
     def __init__(self, path, aug_1=None, aug_2=None):
         super().__init__()
@@ -32,6 +35,24 @@ class MoleculeDataset(InMemoryDataset):
 
         view1 = self.aug_1.aug_func(data)
         view2 = self.aug_2.aug_func(data)
+
+        # verify that view1 and view do represent the same SMILES?
+        datamol = graph_to_rdmol(data)
+        view1mol = graph_to_rdmol(view1)
+        view2mol = graph_to_rdmol(view2)
+
+        datasmi = Chem.CanonSmiles(Chem.MolToSmiles(datamol))
+        view1smi = Chem.CanonSmiles(Chem.MolToSmiles(view1mol))
+        view2smi = Chem.CanonSmiles(Chem.MolToSmiles(view2mol))
+
+        # this may not work if the views change chemical composition
+        # mainly for conformer or other 3D peturbations
+        # if datasmi != view1smi and datasmi != view2smi:
+        #     print(datasmi, view1smi, view2smi)
+        #     Chem.MolToMolFile(datamol, "datasample.sdf")
+        #     Chem.MolToMolFile(view1mol, "view1sample.sdf")
+        #     Chem.MolToMolFile(view2mol, "view2sample.sdf")
+        #     raise Exception("Views do not represent the same molecule!")
 
         return view1, view2
 
