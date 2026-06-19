@@ -74,7 +74,7 @@ class Objective:
             
             if config["pretrain"].get("ignore_labels", False) or not hasattr(self.dataloader.dataset[0], 'y'):
                 log.warning("ignore_labels is True in pretrain; skipping supervised embedding evaluation metrics")
-                embeddings, _ = encoder_embeddings_out(self.encoder, self.dataloader, sample_size=10000)
+                embeddings, _ = encoder_embeddings_out(self.encoder, self.dataloader, sample_size=5000)
                 pretrain_encoder_stats = self.evaluate_encoder_unsupervised_only(embeddings)
                 metrics = pretrain_encoder_stats
 
@@ -83,7 +83,7 @@ class Objective:
                         embeddings=embeddings,
                         )
             else:
-                embeddings, labelsout = encoder_embeddings_out(self.encoder, self.dataloader, sample_size=10000)
+                embeddings, labelsout = encoder_embeddings_out(self.encoder, self.dataloader, sample_size=5000)
                 pretrain_encoder_stats = self.evaluate_encoder(embeddings, labelsout, classification=self.classification)
                 metrics = pretrain_encoder_stats # only relevant if not finetuning
 
@@ -120,7 +120,7 @@ class Objective:
                                     )
         
 
-            embeddings, labelsout = encoder_embeddings_out(self.encoder, self.dataloader, sample_size=10000)
+            embeddings, labelsout = encoder_embeddings_out(self.encoder, self.dataloader, sample_size=5000)
             finetune_encoder_stats = self.evaluate_encoder(embeddings, labelsout, classification=self.classification)
             
             # I/O
@@ -213,14 +213,14 @@ class Objective:
     def evaluate_encoder_unsupervised_only(embeddings):
         """ Evaluate the encoder embedddings using only unsupervised metrics (no labels)
         """
-        spread_mean, spread_median, dist_cv = unsupervised_embedding_eval(embeddings)
+        spread_mean, spread_median, dist_cv = unsupervised_embedding_eval(embeddings, sample_size=5000)
         return {"spread_mean" : spread_mean, "spread_median" : spread_median, "dist_csv" : dist_cv}
 
     @staticmethod
     def evaluate_encoder(embeddings, labels, classification=False):
         """ Evaludate the encoder embedddings irrespective of any prediction head
         """
-        spread_mean, spread_median, dist_cv = unsupervised_embedding_eval(embeddings)
+        spread_mean, spread_median, dist_cv = unsupervised_embedding_eval(embeddings, sample_size=5000)
         
         # Check for missing labels
         if np.isnan(labels).any():

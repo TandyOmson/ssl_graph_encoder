@@ -61,10 +61,12 @@ class ContrastiveSSL(ABC):
                 "params": self.projector.parameters()
             })
 
+        # gradscaler makes tiny gradients visible
         scaler = GradScaler(device.type)
         with trange(epochs) as t:
             for epoch in t:
                 train_loss = 0.0
+                train_grad = 0.0
                 t.set_description('Pretraining: epoch %d' % (epoch+1))
                 
                 for batch in tqdm(
@@ -76,17 +78,30 @@ class ContrastiveSSL(ABC):
                         batch = batch.to(device)
 
                     optimizer.zero_grad(set_to_none=True)
+                    # autocast increases speed by using float16
                     with autocast(device.type):
                         loss = self.training_step(batch, encoder)
 
                     scaler.scale(loss).backward()
+                    scaler.unscale_(optimizer)
+                    
+                    # record gradients
+                    grad_norm = torch.nn.utils.clip_grad_norm_(
+                        encoder.parameters(), 1e9
+                    )
+                    # stop gradients from blowing up (tune clipping threshold if you want to use)
+                    #torch.nn.utils.clip_grad_norm_(encoder.parameters(), 1.0)
+
                     scaler.step(optimizer)
                     scaler.update()
 
                     train_loss += loss.item() if isinstance(loss, torch.Tensor) else loss
+                    train_grad += grad_norm
+
                 train_loss /= len(data_loader)
-                t.set_postfix(loss=f'{train_loss:.4f}')
-                pretrain_log.info(f"{epoch}\t{train_loss}")
+                train_grad /= len(data_loader)
+                t.set_postfix(loss=f'{train_loss:.4f}', grad=f'{train_grad:.4f}')
+                pretrain_log.info(f"{epoch}\t{train_loss}\t{train_grad}")
 
                 # encoder must be yielded to remove projection head
                 yield encoder

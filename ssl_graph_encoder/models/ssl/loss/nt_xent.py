@@ -1,5 +1,6 @@
 from ssl_graph_encoder.models.ssl.base.loss import ContrastiveLoss
 import torch
+import torch.nn.functional as F
 
 class InfoNCE(ContrastiveLoss):
     """ InfoNCE
@@ -20,7 +21,23 @@ class InfoNCE(ContrastiveLoss):
             raise NotImplementedError
         
     @staticmethod
+    # note temperature very much needs tuning, start 0.1-0.5
     def NT_Xent(z1, z2, temperature, normalize):
+        batch_size, _ = z1.size()
+
+        if normalize:
+            z1 = F.normalize(z1,dim=-1)
+            z2 = F.normalize(z2, dim=-1)
+        
+        logits = torch.matmul(z1, z2.T) / temperature
+        logits = logits - logits.max(dim=1, keepdim=True).values
+        
+        labels = torch.arange(batch_size, device=z1.device)
+        loss = F.cross_entropy(logits, labels)
+        return loss
+
+    @staticmethod
+    def NT_Xent_legacy(z1, z2, temperature, normalize):
         batch_size, _ = z1.size()
         sim_matrix = torch.einsum("ik,jk->ij", z1, z2)
 

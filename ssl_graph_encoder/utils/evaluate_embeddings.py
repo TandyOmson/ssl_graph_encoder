@@ -81,11 +81,13 @@ def supervised_embedding_eval(embeddings, labels):
     return lr_rmse, lr_r2, knn_rmse, knn_r2, spearman_corr
 
 
-def unsupervised_embedding_eval(embeddings):
+def unsupervised_embedding_eval(embeddings, sample_size=np.inf):
     """Evaluate embeddings without labels:
     Spread (mean and median pairwise distances)
     Distance distribution (coefficient of variation)
     """
+
+    embeddings = embeddings[np.random.permutation(embeddings.shape[0])[:sample_size]]
 
     pairwise_distances = pdist(embeddings, metric='euclidean')
     distances_flat = pairwise_distances.flatten()
@@ -126,7 +128,7 @@ def encoder_embeddings_out(trained_encoder, dataloader, sample_size=np.inf):
     labels = []
     with torch.no_grad():
         for batch in dataloader:
-            while len(embeddings) < sample_size:
+            if len(embeddings) < sample_size:
                 batch = _batch_to_device(batch, device)
                 batch_embeddings = trained_encoder(batch)
                 embeddings.append(batch_embeddings)
@@ -134,6 +136,8 @@ def encoder_embeddings_out(trained_encoder, dataloader, sample_size=np.inf):
                     labels.append(batch.y)
                 else:
                     labels.append(torch.zeros(batch_embeddings.shape[0]))  # dummy labels if not available
+            else:
+                break
     
     embeddings = torch.cat(embeddings)
     labels = torch.cat(labels)
