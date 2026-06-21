@@ -66,7 +66,7 @@ class Objective:
             self.run_pretrain(config)
             self.prepare_data(config) # Reset the dataloader due to a quirk in pyG where if dataloader.dataset.get sees a list, it will always output a list
             
-            save_pretrained_encoder(f"{config['datadir']}/models/{self.base_name}_pretrained_encoder.pt",
+            save_pretrained_encoder(f"{config['outdir']}/pretrained_encoder.pt",
                                     self.encoder,
                                     config,
                                     #extra={"ridge_rmse":results["pretrain"]["ridge_rmse"]},
@@ -79,7 +79,7 @@ class Objective:
                 metrics = pretrain_encoder_stats
 
                 # I/O
-                np.savez(f"{config['datadir']}/processed/{self.base_name}_pretrained.npz",
+                np.savez(f"{config['outdir']}/embedding_sample_pretrained.npz",
                         embeddings=embeddings,
                         )
             else:
@@ -88,7 +88,7 @@ class Objective:
                 metrics = pretrain_encoder_stats # only relevant if not finetuning
 
                 # I/O
-                np.savez(f"{config['datadir']}/processed/{self.base_name}_pretrained.npz",
+                np.savez(f"{config['outdir']}/embedding_sample_pretrained.npz",
                         embeddings=embeddings, 
                         labels=labelsout
                         )
@@ -107,14 +107,14 @@ class Objective:
             self.build_model(config)
             self.run_finetune(config)
 
-            save_full_model(f"{config['datadir']}/models/{self.base_name}_model.pt",
+            save_full_model(f"{config['outdir']}/model.pt",
                             self.model.encoder,
                             self.model.pred_head,
                             config,
                             #extra={"rmse":metrics[config["objective"]]}
                             )
             
-            save_pretrained_encoder(f"{config['datadir']}/models/{self.base_name}_finetuned_encoder.pt",
+            save_pretrained_encoder(f"{config['outdir']}/finetuned_encoder.pt",
                                     self.encoder,
                                     config,
                                     )
@@ -124,7 +124,7 @@ class Objective:
             finetune_encoder_stats = self.evaluate_encoder(embeddings, labelsout, classification=self.classification)
             
             # I/O
-            np.savez(f"{config['datadir']}/processed/{self.base_name}_finetuned.npz",
+            np.savez(f"{config['outdir']}/embedding_sample_finetuned.npz",
                      embeddings=embeddings, 
                      labels=labelsout
                      )
@@ -305,6 +305,7 @@ log = logging.getLogger(__name__)
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", default="config/defaults.yaml", help="Path to config file")
+    parser.add_argument("--outdir", default="name of output directory in logs")
     parser.add_argument("--device", default="cpu", help="Device (cpu or cuda)")
     args = parser.parse_args()
 
@@ -312,10 +313,8 @@ if __name__ == "__main__":
         config = yaml.safe_load(f)
 
     # Set paths for input and output
-    config["outdir"] = Path(config["outdir"])
+    config["outdir"] = Path(args.outdir)
     config["datadir"] = Path(config["datadir"])
-    if config["datafile"] is not None:
-        config["datafile"] = Path(config["datafile"])
 
     setup_logging(config["outdir"])
 
