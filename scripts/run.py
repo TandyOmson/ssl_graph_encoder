@@ -321,8 +321,8 @@ log = logging.getLogger(__name__)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config", default="config/defaults.yaml", help="Path to config file")
-    parser.add_argument("--outdir", default="name of output directory in logs")
+    parser.add_argument("--config", required=True, default="config/defaults.yaml", help="Path to config file")
+    parser.add_argument("--outdir", required=True, default="name of output directory in logs")
     parser.add_argument("--device", default="cpu", help="Device (cpu or cuda)")
     args = parser.parse_args()
 

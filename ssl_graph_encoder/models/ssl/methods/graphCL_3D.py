@@ -14,6 +14,7 @@ class GraphCL(ContrastiveSSL):
                  encoder_out_dim,
                  device,
                  other_confs_file=None,
+                 temperature=0.3
                  ):
         # other_conf_file created in preprocessing and matched to best conformers
         # use scripts/prepare_3D_from_smiles_embed.py
@@ -30,7 +31,7 @@ class GraphCL(ContrastiveSSL):
         projector = MLP(encoder_out_dim)
         aug_1 = AlternativeConformer(other_confs_dict, conf_dataset)
         aug_2 = AlternativeConformer(other_confs_dict, conf_dataset)
-        loss_fn = InfoNCE(temperature=0.5, normalize=True)
+        loss_fn = InfoNCE(temperature=temperature, normalize=True)
 
         super().__init__(encoder_out_dim, device, projector, [aug_1, aug_2], loss_fn)
         if len(self.augmentors) != 2:
