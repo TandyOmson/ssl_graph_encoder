@@ -38,10 +38,9 @@ class Objective:
         score = objective()      # manual run (experiments and increments)
         score = objective(trial) # optuna run (hyperparameter tuning)
     """
-    def __init__(self, base_config, device, base_name=None):
+    def __init__(self, base_config, device):
         self.base_config = base_config
         self.device = device
-        self.base_name = base_name
 
     def __call__(self, trial=None):
         """ Evaluates a model
@@ -352,7 +351,7 @@ if __name__ == "__main__":
     # single baseline run
     if not config.get("tuning", None):
         log.info("Hyperparameter tuning is OFF")
-        objective = Objective(config, device, base_name=config["run_name"])
+        objective = Objective(config, device)
         score = objective()
 
     # hyperparameter tuning run (set tuning in config)
@@ -364,7 +363,7 @@ if __name__ == "__main__":
         log_dist_cb = LogDistributionsOnce() # writes the parameter distributions (search space) to log.info after first trial 
 
         study  = optuna.create_study(direction="minimize")
-        study.optimize(Objective(config, device, base_name=config["run_name"]), 
+        study.optimize(Objective(config, device), 
                        n_trials=config["tuning"]["n_trials"], 
                        callbacks=[best_trial_cb, log_dist_cb]
                        )
