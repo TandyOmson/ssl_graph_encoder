@@ -72,9 +72,9 @@ class Objective:
                                     #extra={"ridge_rmse":results["pretrain"]["ridge_rmse"]},
                                     )
             
-            if config["pretrain"].get("ignore_labels", False) or not hasattr(self.dataloader.dataset[0], 'y'):
+            if config["pretrain"].get("ignore_labels", False) or not hasattr(self.train_loader.dataset[0], 'y'):
                 log.warning("ignore_labels is True in pretrain; skipping supervised embedding evaluation metrics")
-                embeddings, _ = encoder_embeddings_out(self.encoder, self.dataloader, sample_size=5000)
+                embeddings, _ = encoder_embeddings_out(self.encoder, self.train_loader, sample_size=5000)
                 pretrain_encoder_stats = self.evaluate_encoder_unsupervised_only(embeddings)
                 metrics = pretrain_encoder_stats
 
@@ -83,7 +83,7 @@ class Objective:
                         embeddings=embeddings,
                         )
             else:
-                embeddings, labelsout = encoder_embeddings_out(self.encoder, self.dataloader, sample_size=5000)
+                embeddings, labelsout = encoder_embeddings_out(self.encoder, self.test_loader, sample_size=5000)
                 pretrain_encoder_stats = self.evaluate_encoder(embeddings, labelsout, classification=self.classification)
                 metrics = pretrain_encoder_stats # only relevant if not finetuning
 
@@ -120,7 +120,7 @@ class Objective:
                                     )
         
 
-            embeddings, labelsout = encoder_embeddings_out(self.encoder, self.dataloader, sample_size=5000)
+            embeddings, labelsout = encoder_embeddings_out(self.encoder, self.test_loader, sample_size=5000)
             finetune_encoder_stats = self.evaluate_encoder(embeddings, labelsout, classification=self.classification)
             
             # I/O
@@ -169,27 +169,45 @@ class Objective:
     def prepare_data(self, config):
         if config["download"]:
             dataset = TUDataset(config["datadir"] / "raw", name=config["download_name"], use_node_attr=True)
+
+            train_dataset, val_dataset, test_dataset = split_dataset(dataset, val_frac=0.1, test_frac=0.1)
+            self.train_loader = DataLoader(train_dataset, batch_size=config["pretrain"]["batch_size"], shuffle=True)
+            self.val_loader = DataLoader(val_dataset, batch_size=config["pretrain"]["batch_size"], shuffle=False)
+            self.test_loader = DataLoader(test_dataset, batch_size=config["pretrain"]["batch_size"], shuffle=False) 
+
         else:
-            dataset = MoleculeDataset(config["datafile"])
+            train_dataset = MoleculeDataset(config["train_file"])
+            test_dataset = MoleculeDataset(config["test_file"])
 
-        self.dataloader = DataLoader(dataset, 
-                                batch_size=config["pretrain"]["batch_size"], 
-                                shuffle=True, 
-                                num_workers=config["pretrain"].get("loader_worker_num", 4),
-                                pin_memory=True,
-                                persistent_workers=True,
-                                )
-
-        # split dataset for finetuning, remake loaders
-        train_dataset, val_dataset, test_dataset = split_dataset(dataset, val_frac=0.1, test_frac=0.1)
-        self.train_loader = DataLoader(train_dataset, batch_size=config["pretrain"]["batch_size"], shuffle=True)
-        self.val_loader = DataLoader(val_dataset, batch_size=128, shuffle=False)
-        self.test_loader = DataLoader(test_dataset, batch_size=128, shuffle=False)    
-    
+            self.train_loader = DataLoader(train_dataset, 
+                                    batch_size=config["pretrain"]["batch_size"], 
+                                    shuffle=True, 
+                                    num_workers=config["pretrain"].get("loader_worker_num", 4),
+                                    pin_memory=True,
+                                    persistent_workers=True,
+                                    )
+            
+            self.test_loader = DataLoader(test_dataset, 
+                                    batch_size=config["pretrain"]["batch_size"], 
+                                    shuffle=True, 
+                                    num_workers=config["pretrain"].get("loader_worker_num", 4),
+                                    pin_memory=True,
+                                    persistent_workers=True,
+                                    )
+            
+            if config.get("val_file", None) is not None:
+                val_dataset = MoleculeDataset(config["val_file"])
+                self.val_loader = DataLoader(val_dataset, 
+                                        batch_size=config["pretrain"]["batch_size"], 
+                                        shuffle=True, 
+                                        num_workers=config["pretrain"].get("loader_worker_num", 4),
+                                        pin_memory=True,
+                                        persistent_workers=True,
+                                        )
         return 
     
     def build_graph_encoder_ssl(self, config):
-        feat_dim = self.dataloader.dataset[0].x.size(-1)
+        feat_dim = self.train_loader.dataset[0].x.size(-1)
         config["feat_dim"] = feat_dim
         embed_dim = config["encoder"]["embed_dim"]
         self.graph_encoder_ssl = build_pretrain_encoder(feat_dim, embed_dim, config)
@@ -197,7 +215,7 @@ class Objective:
 
     def run_pretrain(self, config):
         pretrain_trainer = PretrainTrainer(self.device, config)
-        self.encoder = pretrain_trainer.fit(self.graph_encoder_ssl, self.dataloader)
+        self.encoder = pretrain_trainer.fit(self.graph_encoder_ssl, self.train_loader)
         return
     
     def build_model(self, config):
@@ -206,7 +224,7 @@ class Objective:
     
     def run_finetune(self, config):
         finetune_trainer = FinetuneTrainer(self.device, config)
-        self.model, self.encoder = finetune_trainer.fit(self.model, self.train_loader, self.val_loader)
+        self.model, self.encoder = finetune_trainer.fit(self.model, self.train_loader, self.test_loader)
         return
 
     @staticmethod
