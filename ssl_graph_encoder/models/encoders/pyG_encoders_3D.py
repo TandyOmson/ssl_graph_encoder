@@ -13,7 +13,7 @@ from torch.nn import Linear
 class SchNetEncoder(GraphEncoder):
     """ 3D SchNet Adapted from torch_geometric
     """
-    def __init__(self, feat_dim, embed_dim, hidden_channels=64, num_interactions=6):
+    def __init__(self, feat_dim, embed_dim, hidden_channels=64, num_interactions=3):
         super().__init__(feat_dim, embed_dim)
         self.model = SchNetAdaptor(
             hidden_channels=hidden_channels,
