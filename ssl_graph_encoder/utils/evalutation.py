@@ -4,6 +4,7 @@ from pathlib import Path
 import json
 import inspect
 from ssl_graph_encoder.utils.model_io import load_class
+from sklearn.preprocessing import StandardScaler
 
 class EmbeddingMetric:
     def __init__(self, name, method, kwargs):
@@ -43,6 +44,8 @@ class EmbeddingEvaluator:
         self.flush_results(outfile)
 
     def unsupervised_eval(self, embeddings):
+        scaler = StandardScaler()
+        embeddings = scaler.fit_transform(embeddings)
         for m in self.unsupervised_metrics:
             res = m.evaluate_unsupervised(embeddings)
             if isinstance(res, dict):
@@ -54,6 +57,8 @@ class EmbeddingEvaluator:
                 self.results[m.name] = res
     
     def supervised_eval(self, embeddings, labels, split_idxs):
+        scaler = StandardScaler()
+        embeddings = scaler.fit_transform(embeddings)
         for m in self.supervised_metrics:
             res = m.evaluate_supervised(embeddings, labels, split_idxs)
             if isinstance(res, dict):
