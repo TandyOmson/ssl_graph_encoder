@@ -20,11 +20,12 @@ import optuna
 
 # form the install sll_graph_encoder package
 from ssl_graph_encoder.utils.data_preprocessing import MoleculeDataset, split_dataset
-from ssl_graph_encoder.utils.evaluate_embeddings import supervised_embedding_eval, unsupervised_embedding_eval, evaluate_full_model, encoder_embeddings_out, supervised_embedding_eval_classification, evaluate_full_model_classification
+from ssl_graph_encoder.utils.evaluate_embeddings import evaluate_full_model, encoder_embeddings_out, evaluate_full_model_classification
 from ssl_graph_encoder.training.pretrain import build_pretrain_encoder, PretrainTrainer
 from ssl_graph_encoder.training.finetune import build_finetune_model, FinetuneTrainer
 from ssl_graph_encoder.utils.tuning_helpers import apply_search_space, BestTrialCallback, LogDistributionsOnce, log_trial_metrics_and_params
 from ssl_graph_encoder.utils.model_io import save_pretrained_encoder, save_full_model, load_pretrained_encoder
+from ssl_graph_encoder.utils.evalutation import EmbeddingEvaluator
 
 class Objective:
     """ Manual process development for graph model
@@ -51,6 +52,8 @@ class Objective:
         
         config = self.make_config(trial)
 
+        self.embed_evalutator = EmbeddingEvaluator(config["metrics"]) 
+
         self.classification = config.get("classification", False)
         if self.classification:
             log.info("Running in classification mode")
@@ -73,26 +76,36 @@ class Objective:
             
             if config["pretrain"].get("ignore_labels", False) or not hasattr(self.train_loader.dataset[0], 'y'):
                 log.warning("ignore_labels is True in pretrain; skipping supervised embedding evaluation metrics")
-                embeddings, _ = encoder_embeddings_out(self.encoder, self.train_loader, sample_size=5000)
-                pretrain_encoder_stats = self.evaluate_encoder_unsupervised_only(embeddings)
-                metrics = pretrain_encoder_stats
+                embeddings, _ = encoder_embeddings_out(self.encoder, self.test_loader, sample_size=5000)
+                self.embed_evalutator.unsupervised_eval(embeddings)
+                metrics = self.embed_evalutator.results # only relevant if not finetuning
 
                 # I/O
                 np.savez(f"{config['outdir']}/embedding_sample_pretrained.npz",
                         embeddings=embeddings,
                         )
             else:
-                embeddings, labelsout = encoder_embeddings_out(self.encoder, self.test_loader, sample_size=5000)
-                pretrain_encoder_stats = self.evaluate_encoder(embeddings, labelsout, classification=self.classification)
-                metrics = pretrain_encoder_stats # only relevant if not finetuning
+                train_embed, train_labels = encoder_embeddings_out(self.encoder, self.train_loader, sample_size=4000)
+                test_embed, test_labels = encoder_embeddings_out(self.encoder, self.test_loader, sample_size=500)
+                val_embed, val_labels = encoder_embeddings_out(self.encoder, self.val_loader, sample_size=500)
 
+                # collate and get a list of lists of split idxs for each set
+                embeddings = np.concat([train_embed, test_embed, val_embed], axis=0)
+                labels = np.concat([train_labels, test_labels, val_labels], axis=0)
+                split_idxs = [np.arange(0, train_embed.shape[0]), 
+                              np.arange(train_embed.shape[0], train_embed.shape[0]+test_embed.shape[0]), 
+                              np.arange(train_embed.shape[0]+test_embed.shape[0], embeddings.shape[0])]
+
+                self.embed_evalutator.unsupervised_eval(test_embed)
+                self.embed_evalutator.supervised_eval(embeddings, labels, split_idxs)
+                metrics = self.embed_evalutator.results # only relevant if not finetuning
                 # I/O
                 np.savez(f"{config['outdir']}/embedding_sample_pretrained.npz",
                         embeddings=embeddings, 
-                        labels=labelsout
+                        labels=labels
                         )
             results["pretrain"] = metrics
-            log.debug("PRETRAIN EMBEDDING STATS:\n" + pprint.pformat(pretrain_encoder_stats, width=1))
+            log.debug("PRETRAIN EMBEDDING STATS:\n" + pprint.pformat(self.embed_evalutator.results, width=1))
         # if there is no pretraining, a trained encoder file is expected
         else:
             if config["trained_encoder_file"] is not None:
@@ -117,15 +130,25 @@ class Objective:
                                     self.encoder,
                                     config,
                                     )
-        
 
-            embeddings, labelsout = encoder_embeddings_out(self.encoder, self.test_loader, sample_size=5000)
-            finetune_encoder_stats = self.evaluate_encoder(embeddings, labelsout, classification=self.classification)
-            
+            train_embed, train_labels = encoder_embeddings_out(self.encoder, self.train_loader, sample_size=4000)
+            test_embed, test_labels = encoder_embeddings_out(self.encoder, self.test_loader, sample_size=500)
+            val_embed, val_labels = encoder_embeddings_out(self.encoder, self.val_loader, sample_size=500)
+
+            # collate and get a list of lists of split idxs for each set
+            embeddings = np.concat([train_embed, test_embed, val_embed], axis=0)
+            labels = np.concat([train_labels, test_labels, val_labels], axis=0)
+            split_idxs = [np.arange(0, train_embed.shape[0]), 
+                        np.arange(train_embed.shape[0], train_embed.shape[0]+test_embed.shape[0]), 
+                        np.arange(train_embed.shape[0]+test_embed.shape[0], embeddings.shape[0])]
+
+            self.embed_evalutator.supervised_eval(embeddings, labels, split_idxs)
+            finetune_encoder_stats = self.embed_evalutator.results # only relevant if not finetuning
+
             # I/O
             np.savez(f"{config['outdir']}/embedding_sample_finetuned.npz",
                      embeddings=embeddings, 
-                     labels=labelsout
+                     labels=labels
                      )
             results["finetune"] = finetune_encoder_stats
             log.debug("FINETUNE EMBEDDING STATS:\n" + pprint.pformat(finetune_encoder_stats, width=1))
@@ -225,32 +248,6 @@ class Objective:
         finetune_trainer = FinetuneTrainer(self.device, config)
         self.model, self.encoder = finetune_trainer.fit(self.model, self.train_loader, self.test_loader)
         return
-
-    @staticmethod
-    def evaluate_encoder_unsupervised_only(embeddings):
-        """ Evaluate the encoder embedddings using only unsupervised metrics (no labels)
-        """
-        spread_mean, spread_median, dist_cv = unsupervised_embedding_eval(embeddings, sample_size=5000)
-        return {"spread_mean" : spread_mean, "spread_median" : spread_median, "dist_csv" : dist_cv}
-
-    @staticmethod
-    def evaluate_encoder(embeddings, labels, classification=False):
-        """ Evaludate the encoder embedddings irrespective of any prediction head
-        """
-        spread_mean, spread_median, dist_cv = unsupervised_embedding_eval(embeddings, sample_size=5000)
-        
-        # Check for missing labels
-        if np.isnan(labels).any():
-            return {"spread_mean" : spread_mean, "spread_median" : spread_median, "dist_csv" : dist_cv}
-
-        if classification:
-            ridge_acc, ridge_f1, knn_acc, knn_f1 = supervised_embedding_eval_classification(embeddings, labels)
-            return {"ridge_acc" : ridge_acc, "ridge_f1": ridge_f1, "knn_acc" : knn_acc, "knn_f1" : knn_f1,
-                    "spread_mean" : spread_mean, "spread_median" : spread_median, "dist_csv" : dist_cv}
-        else:
-            ridge_rmse, ridge_r2, knn_rmse, knn_r2, spearman_corr = supervised_embedding_eval(embeddings, labels)
-            return {"ridge_rmse" : ridge_rmse, "ridge_r2": ridge_r2, "knn_rmse" : knn_rmse, "knn_r2" : knn_r2, "spearman_corr" : spearman_corr,
-                    "spread_mean" : spread_mean, "spread_median" : spread_median, "dist_csv" : dist_cv}
 
     def evaluate_model(self, classification=False):
         """ Evaluate full mode with encoder and prediction head using the test set
