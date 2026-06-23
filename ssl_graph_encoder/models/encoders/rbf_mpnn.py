@@ -4,6 +4,7 @@
 from ssl_graph_encoder.models.encoders.base import GraphEncoder
 import torch
 import torch.nn as nn
+from torch_geometric.nn import radius_graph
 from torch.nn import Linear, SiLU
 from torch_geometric.nn import global_mean_pool, global_add_pool
 
@@ -21,6 +22,7 @@ class RBFMPNNEncoder(GraphEncoder):
     ):
         super().__init__(feat_dim, embed_dim)
 
+        self.cutoff = cutoff
         # embeddings
         self.embedding = nn.Embedding(100, hidden_channels)
 
@@ -46,17 +48,19 @@ class RBFMPNNEncoder(GraphEncoder):
         )
 
     def forward(self, batch):
-        pos = batch.pos
-        z = batch.z
-        edge_index = batch.edge_index
-        batch_idx = batch.batch
+        pos = batch.pos                     # [N, 3]
+        z = batch.z                         # [N]
+        batch_index = batch.batch
 
-        # node features
-        h = self.embedding(z)  # [N, hidden]
+        # initial node features
+        h = self.embedding(z)               # [N, hidden]
 
+        # edge indices are all pairwise distances with a cutoff r
+        edge_index = radius_graph(pos, r=self.cutoff, batch=batch_index, loop=False)
+
+        # all start and end indices for bonds
         row, col = edge_index
-
-        # distances
+        # pairwise atomic distances
         dists = (pos[row] - pos[col]).norm(dim=-1)  # [E]
 
         # RBF edge features
@@ -68,7 +72,7 @@ class RBFMPNNEncoder(GraphEncoder):
             h = self.act(h)
 
         # pooling
-        graph_emb = global_mean_pool(h, batch_idx)
+        graph_emb = global_mean_pool(h, batch_index)
 
         # projection
         emb = self.mlp(graph_emb)
@@ -76,12 +80,13 @@ class RBFMPNNEncoder(GraphEncoder):
         return emb
 
 class RBFLayer(nn.Module):
-    def __init__(self, num_basis=32, cutoff=5.0, gamma=10.0):
+    def __init__(self, num_basis=32, cutoff=5.0):
         super().__init__()
-
         self.num_basis = num_basis
         self.cutoff = cutoff
-        self.gamma = gamma
+
+        # gamma (width param/smoothness) based on num gaussians and cutoff
+        self.gamma = 1/(2*((cutoff/num_basis)**2)) # may choose to tune this
 
         centers = torch.linspace(0, cutoff, num_basis)
         self.register_buffer("centers", centers)

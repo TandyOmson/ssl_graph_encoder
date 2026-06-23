@@ -5,24 +5,27 @@
 from ssl_graph_encoder.models.encoders.base import GraphEncoder
 import torch
 import torch.nn as nn
+from torch_geometric.nn import radius_graph
 from torch.nn import Linear, SiLU
 from torch_geometric.nn import global_mean_pool, global_add_pool
 
 class PairwiseRBFEncoder(GraphEncoder):
     """ 3D pairwise radial basis function encoder
     """
-    def __init__(self, feat_dim, embed_dim, hidden_channels=64, cutoff=10.0, num_gaussians=50, mlp_layers=3):
+    def __init__(self, feat_dim, embed_dim, hidden_channels=64, cutoff=5.0, num_gaussians=50, mlp_layers=3):
         super().__init__(feat_dim, embed_dim)     
 
+        # cutoff of pairwise distances is same as cutoff defining the limit of the rbf centres in the radial basis expansion
         self.rbf_layer = RBFLayer(num_basis=num_gaussians, cutoff=cutoff)
 
-        # MLP
+        self.cutoff = cutoff
+
+        # MLP (defined per graph)
         layers = []
         in_dim = num_gaussians
-
         for _ in range(mlp_layers-1):
             layers.append(Linear(in_dim, hidden_channels))
-            layers.append(SiLU())
+            layers.append(SiLU()) # sigmoid linear unit activation "swish"
             in_dim = hidden_channels
         layers.append(Linear(in_dim, embed_dim))
         
@@ -30,17 +33,18 @@ class PairwiseRBFEncoder(GraphEncoder):
         
     def forward(self, batch):
         pos = batch.pos
-        edge_index = batch.edge_index
         batch_index = batch.batch
 
+        # edge indices are all pairwise distances with a cutoff r
+        edge_index = radius_graph(pos, r=self.cutoff, batch=batch_index, loop=False)
+
+        # all start and end indices for bonds
         row, col = edge_index
+        # gives pairwise atomic distances
         dists = (pos[row] - pos[col]).norm(dim=-1)
 
         # expand over
         rbf = self.rbf_layer(dists)
-        # cutoff weighting
-        mask = (dists < self.rbf_layer.cutoff).float()
-        rbf = rbf * mask.unsqueeze(-1)
 
         node_rbf = torch.zeros(
             (pos.size(0), rbf.size(-1)),
@@ -54,20 +58,22 @@ class PairwiseRBFEncoder(GraphEncoder):
         return emb
 
 class RBFLayer(nn.Module):
-    def __init__(self, num_basis=32, cutoff=5.0, gamma=10.0):
+    def __init__(self, num_basis=32, cutoff=5.0):
         super().__init__()
         self.num_basis = num_basis # number of gaussians
-        self.cutoff = cutoff # defines centres
-        self.gamma = gamma # defines width param
+        self.cutoff = cutoff # defines centre
 
-        centers = torch.linspace(0, cutoff, num_basis)
-        self.register_buffer("centers", centers)
+        # gamma (width param/smoothness) based on num gaussians and cutoff
+        self.gamma = 1/(2*((cutoff/num_basis)**2)) # may choose to tune this
+
+        centres = torch.linspace(0, cutoff, num_basis)
+        self.register_buffer("centres", centres)
 
     def forward(self, d):
         """
-        d: distances tensor, shape [...,]
-        returns: RBF expansion, shape [..., num_basis]
+        d: distances tensor, shape [num_edges]
+        returns: RBF expansion, shape [num_edges, num_basis]
         """
-        d_expanded = d.unsqueeze(-1) 
-        rbf = torch.exp(-self.gamma * (d_expanded - self.centers) ** 2)
+        d_expanded = d.unsqueeze(-1) # converts to column vector (1, num_bonds)
+        rbf = torch.exp(-self.gamma * (d_expanded - self.centres) ** 2)
         return rbf

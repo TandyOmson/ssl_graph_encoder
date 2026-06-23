@@ -5,6 +5,7 @@
 from ssl_graph_encoder.models.encoders.base import GraphEncoder
 import torch
 import torch.nn as nn
+from torch_geometric.nn import radius_graph
 from torch.nn import Linear, SiLU
 from torch_geometric.nn import global_mean_pool, global_add_pool
 
@@ -15,12 +16,16 @@ class DistanceGCNEncoder(GraphEncoder):
         self,
         feat_dim,
         embed_dim,
+        cutoff=5.0,
         hidden_channels=64,
         num_layers=4,
     ):
         super().__init__(feat_dim, embed_dim)
 
-        # atomic number embedding
+        # set this to just above bond distance to get bonds only
+        self.cutoff = cutoff
+
+        # atomic number embedding (100 is a very safe upper bound for size of dictionary of tokens i.e. vocab length)
         self.embedding = nn.Embedding(100, hidden_channels)
 
         # GCN layers
@@ -41,16 +46,18 @@ class DistanceGCNEncoder(GraphEncoder):
     def forward(self, batch):
         pos = batch.pos                     # [N, 3]
         z = batch.z                         # [N]
-        edge_index = batch.edge_index
-        batch_idx = batch.batch
+        batch_index = batch.batch
 
         # initial node features
         h = self.embedding(z)               # [N, hidden]
 
-        row, col = edge_index
+        # edge indices are all pairwise distances with a cutoff r
+        edge_index = radius_graph(pos, r=self.cutoff, batch=batch_index, loop=False)
 
-        # distances on edges
-        dists = (pos[row] - pos[col]).norm(dim=-1)  # [E]
+        # all start and end indices for bonds
+        row, col = edge_index
+        # gives pairwise atomic distances
+        dists = (pos[row] - pos[col]).norm(dim=-1)
 
         # message passing
         for layer in self.layers:
@@ -58,7 +65,7 @@ class DistanceGCNEncoder(GraphEncoder):
             h = self.act(h)
 
         # graph pooling
-        graph_emb = global_mean_pool(h, batch_idx)
+        graph_emb = global_mean_pool(h, batch_index)
 
         # projection
         emb = self.mlp(graph_emb)
@@ -73,12 +80,10 @@ class DistanceGCNLayer(nn.Module):
     def forward(self, h, edge_index, dists):
         row, col = edge_index
 
-        # message: W h_j
+        # message (gets hidden embeddings for the source node of each edge)
         m_ij = self.lin(h[col])  # [E, hidden]
-
-        # distance weights (Gaussian)
+        # gaussia distance weights
         w_ij = torch.exp(-dists**2).unsqueeze(-1)  # [E, 1]
-
         m_ij = w_ij * m_ij
 
         # aggregate

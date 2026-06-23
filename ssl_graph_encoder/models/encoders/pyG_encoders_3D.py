@@ -23,7 +23,7 @@ class SchNetEncoder(GraphEncoder):
         # By default, the final lin1 and lin2 have fixed dimensions
         self.model.lin1 = Linear(hidden_channels, hidden_channels//2)
         self.model.lin2 = Linear(hidden_channels//2, embed_dim)
-
+        # means I can pick embed dim 
 
     def forward(self, data):
         # PyG SchNet expects atomic numbers (as longs) and positions
