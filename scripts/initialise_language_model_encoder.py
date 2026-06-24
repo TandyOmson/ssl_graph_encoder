@@ -1,31 +1,16 @@
 """
-Build a randomly initialised SMILES encoder
-This program is NOT optimised for language models.
-This script outputs a langauge model with random parameters to be loaded as a pretrained encoder in finetuning only runs, for the purpose of benchmarking.
-It ingests raw SMILES.
-
-Bidirectional GRU
-- Takes raw SMILES strings
-- Handles tokenisation internally
-- Saves EVERYTHING to a single .pt file
-- Output: encoder(smiles_list) -> (B, D)
+Build a self-contained SMILES encoder (bidirectional GRU)
+Compatible with load_pretrained_encoder pattern
 """
-
 from pathlib import Path
 import argparse
 import torch
 import torch.nn as nn
-
-
-# =========================
-# Utilities
-# =========================
+from ssl_graph_encoder.models.encoders.smiles_benchmark_encoder import SmilesEncoder
 
 def load_smiles(file):
     with open(file, "r") as f:
-        smiles = [line.strip() for line in f if line.strip()]
-    return smiles
-
+        return [line.strip() for line in f if line.strip()]
 
 def build_vocab(smiles_list):
     charset = set()
@@ -34,127 +19,50 @@ def build_vocab(smiles_list):
 
     charset = sorted(list(charset))
 
-    # reserve:
-    # 0 = padding
-    # len(stoi)+1 = UNK
-    stoi = {c: i + 1 for i, c in enumerate(charset)}
+    stoi = {c: i + 1 for i, c in enumerate(charset)}  # 0 = padding
     unk_idx = len(stoi) + 1
 
     return stoi, unk_idx
 
-
-# =========================
-# Encoder (self-contained)
-# =========================
-
-class SmilesEncoder(nn.Module):
-    def __init__(
-        self,
-        stoi,
-        unk_idx,
-        embed_dim=128,
-        hidden_dim=256,
-        num_layers=2,
-        max_len=120,
-    ):
-        super().__init__()
-
-        self.stoi = stoi
-        self.unk_idx = unk_idx
-        self.max_len = max_len
-
-        vocab_size = unk_idx + 1  # include UNK
-
-        self.embedding = nn.Embedding(vocab_size, embed_dim, padding_idx=0)
-
-        self.rnn = nn.GRU(
-            embed_dim,
-            hidden_dim,
-            num_layers=num_layers,
-            batch_first=True,
-            bidirectional=True,
-        )
-
-        self.output_dim = hidden_dim * 2
-
-    def encode_smiles(self, smiles_list):
-        batch_tokens = []
-
-        for smi in smiles_list:
-            tokens = [
-                self.stoi.get(c, self.unk_idx)
-                for c in smi[:self.max_len]
-            ]
-
-            if len(tokens) < self.max_len:
-                tokens += [0] * (self.max_len - len(tokens))
-
-            batch_tokens.append(tokens)
-
-        return torch.tensor(batch_tokens, dtype=torch.long)
-
-    def forward(self, smiles_list):
-        """
-        smiles_list: List[str]
-        returns: (B, D)
-        """
-
-        x = self.encode_smiles(smiles_list)
-        x = x.to(next(self.parameters()).device)
-
-        x = self.embedding(x)                  # (B, L, E)
-        _, h = self.rnn(x)                    # (layers*2, B, H)
-
-        h = h.view(self.rnn.num_layers, 2, x.size(0), -1)
-        h = h[-1]                             # (2, B, H)
-        h = torch.cat([h[0], h[1]], dim=-1)   # (B, 2H)
-
-        return h
-
-
-# =========================
-# Main
-# =========================
-
 def main(args):
     smiles = load_smiles(args.smiles_file)
-
-    # build vocab
+    # vocab
     stoi, unk_idx = build_vocab(smiles)
-
-    # build model
+    # model
     model = SmilesEncoder(
+        feat_dim=None,
+        embed_dim=args.embed_dim,
         stoi=stoi,
         unk_idx=unk_idx,
-        embed_dim=args.embed_dim,
         hidden_dim=args.hidden_dim,
         num_layers=args.num_layers,
         max_len=args.max_len,
     )
 
-    # initialise weights
+    # initialise
     for p in model.parameters():
         if p.dim() > 1:
             nn.init.xavier_uniform_(p)
 
-    # save EVERYTHING to one file
+    # ===== payload that matches your loader =====
     payload = {
-        "model_state_dict": model.state_dict(),
-        "config": {
-            "embed_dim": args.embed_dim,
-            "hidden_dim": args.hidden_dim,
-            "num_layers": args.num_layers,
-            "max_len": args.max_len,
+        "encoder_class_path": "ssl_graph_encoder.models.encoders.smiles_benchmark_encoder.SmilesEncoder",
+        "feat_dim": None,  # no node features like GNN
+        "embed_dim": model.output_dim,
+        "encoder_kwargs": {
+            "kwargs": {
+                "stoi": stoi,
+                "unk_idx": unk_idx,
+                "hidden_dim": args.hidden_dim,
+                "num_layers": args.num_layers,
+                "max_len": args.max_len,
+            }
         },
-        "stoi": stoi,
-        "unk_idx": unk_idx,
+        "state_dict": model.state_dict(),
     }
 
-    torch.save(payload, args.outfile)
-
+    torch.save(payload, Path(args.outfile))
     print(f"Saved encoder to {args.outfile}")
-    print(f"Vocab size: {len(stoi)} (UNK index = {unk_idx})")
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -167,5 +75,4 @@ if __name__ == "__main__":
     parser.add_argument("--max_len", type=int, default=120)
 
     args = parser.parse_args()
-
     main(args)

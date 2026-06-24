@@ -7,7 +7,7 @@
 import torch
 import torch_geometric
 from torch.utils.data import random_split
-from torch_geometric.data import InMemoryDataset
+from torch_geometric.data import Data, InMemoryDataset
 from torch_geometric.loader import DataLoader
 
 from ssl_graph_encoder.utils.smiles_to_graph import graph_to_rdmol
@@ -73,7 +73,27 @@ class SmilesDataset(InMemoryDataset):
         datamol = graph_to_rdmol(data)
         smi = Chem.CanonSmiles(Chem.MolToSmiles(datamol))
         
-        return smi
+        data = Data()
+        data.smiles = smi
+        data.y = self.data.y[idx]
+
+        return data
+
+# class SmilesDataset(InMemoryDataset):
+#     def __init__(self, path):
+#         super().__init__()
+#         self.smiles = [i.strip() for i in open(path,"r").readlines()]
+
+#     def len(self):
+#         return len(self.smiles)
+
+#     def get(self, idx):
+#         smi = Chem.CanonSmiles(self.smiles[idx])
+
+#         data = Data()
+#         data.smiles = smi
+        
+#         return data
 
 def split_dataset(dataset, val_frac=0.1, test_frac=0.1, random_seed=42):
     """ Split dataset into train/val/test sets
@@ -93,11 +113,23 @@ def split_dataset(dataset, val_frac=0.1, test_frac=0.1, random_seed=42):
     return train_dataset, val_dataset, test_dataset
 
 def make_loader(dataset, config, shuffle=True):
-    return DataLoader(
-        dataset,
-        batch_size=config["pretrain"]["batch_size"],
-        shuffle=shuffle,
-        num_workers=config["pretrain"].get("loader_worker_num", 4),
-        pin_memory=True,
-        persistent_workers=True,
-    )
+    try:
+        loader = DataLoader(
+            dataset,
+            batch_size=config["pretrain"]["batch_size"],
+            shuffle=shuffle,
+            num_workers=config["pretrain"].get("loader_worker_num", 4),
+            pin_memory=True,
+            persistent_workers=True,
+        )
+    except:
+        loader = DataLoader(
+            dataset,
+            batch_size=config["finetune"]["batch_size"],
+            shuffle=shuffle,
+            num_workers=config["finetune"].get("loader_worker_num", 4),
+            pin_memory=True,
+            persistent_workers=True,
+        )
+    
+    return loader 

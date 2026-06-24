@@ -61,25 +61,25 @@ class BestTrialCallback:
         if study.best_trial.number == trial.number and self.best_seen["number"] != trial.number:
             log.info(f"Found best trial number {trial.number}, changing files to _best")
             self.best_seen["number"] = trial.number
+
             # If True, promote trial to best by changing filenames from I/O to _best.
-            # logs/{base_name}/config.yaml
             src = Path(self.config["outdir"] / "trial_config.yaml")
-            src.replace(src.with_stem(f"config_best"))
-            # logs/{base_name}/result.json
+            src.replace(src.with_stem("config_best"))
+
             src = Path(self.config["outdir"] / "result.json")
-            src.replace(src.with_stem(f"result_best"))
-            # data/processed/{base_name}_pretrained.npz
-            src = Path(self.config["outdir"] / f"{self.config['run_name']}_pretrained.npz")
-            src.replace(src.with_stem(f"{self.config['run_name']}_pretrained_best"))
-            # data/processed/{base_name}_finetuned.npz
-            src = Path(self.config["outdir"] /  f"{self.config['run_name']}_finetuned.npz")
-            src.replace(src.with_stem(f"{self.config['run_name']}_finetuned_best"))
-            # data/models/{base_name}_pretrained_encoder.pt
-            src = Path(self.config["outdir"] /  f"{self.config['run_name']}_pretrained_encoder.pt")
-            src.replace(src.with_stem(f"{self.config['run_name']}_pretrained_encoder_best"))
-            # data/models/{base_name}_model.pt
-            src = Path(self.config["outdir"] /  f"{self.config['run_name']}_model.pt")
-            src.replace(src.with_stem(f"{self.config['run_name']}_model_best"))
+            src.replace(src.with_stem("result_best"))
+
+            src = Path(self.config["outdir"] / "embedding_sample_pretrained.npz")
+            src.replace(src.with_stem("embedding_sample_pretrained_best"))
+
+            src = Path(self.config["outdir"] /  "embedding_sample_finetuned.npz")
+            src.replace(src.with_stem("embedding_sample_finetuned_best"))
+
+            src = Path(self.config["outdir"] /  "pretrained_encoder.pt")
+            src.replace(src.with_stem("pretrained_encoder_best"))
+
+            src = Path(self.config["outdir"] /  "model.pt")
+            src.replace(src.with_stem("model_best"))
             return 
         else:
             return 

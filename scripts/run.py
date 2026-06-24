@@ -65,6 +65,15 @@ class Objective:
                 raise FileNotFoundError("Expected trained_encoder_file in config if not pretraining")
             
             self.encoder, payload = load_pretrained_encoder(config["trained_encoder_file"])
+            # update config
+            config["encoder"] = {}
+            config["encoder"]["kwargs"] = {}
+            config["encoder"]["class_path"] = payload["encoder_class_path"]
+            config["encoder"]["feat_dim"] = payload["feat_dim"]
+            config["encoder"]["embed_dim"] = payload["embed_dim"]
+            for k,v in payload["encoder_kwargs"]["kwargs"].items():
+                if k != "class_path":
+                    config["encoder"]["kwargs"][k] = v
 
         if config.get("finetune", False):
             log.info("=== FINETUNE START ===")
@@ -162,6 +171,11 @@ class Objective:
         return metrics
 
     def run_finetune(self, config):
+        try:
+            feat_dim = self.train_loader.dataset[0].x.size(-1)
+        except:
+            feat_dim = None
+        config["feat_dim"] = feat_dim
         self.model = build_finetune_model(self.encoder, config)
 
         finetune_trainer = FinetuneTrainer(self.device, config)
@@ -188,7 +202,7 @@ class Objective:
                     labels=labels
                     )
         log.debug("FINETUNE EMBEDDING STATS:\n" + pprint.pformat(metrics, width=1))
-        metrics = self.evaluate_model(classification=config.get("classification", False))
+        metrics.update(self.evaluate_model(classification=config.get("classification", False)))
         return metrics
 
     def evaluate_model(self, classification=False):
@@ -258,14 +272,14 @@ if __name__ == "__main__":
             pretrain_encoder_stats = {f"pretrain_{k}": v for k, v in results["pretrain"].items()}
             finetune_encoder_stats = {f"finetune_{k}": v for k, v in results["finetune"].items()}
             all_metrics = {**pretrain_encoder_stats, **finetune_encoder_stats}
-
+            
             log_trial_metrics_and_params(config["outdir"] / "tuning.csv", 
                                          trial.number, 
-                                         metrics[config["objective"]], 
+                                         metrics, 
                                          all_metrics, 
                                          trial.params
                                          )
-            return metrics[config["objective"]]
+            return metrics
 
         # optuna callbacks
         best_trial_cb = BestTrialCallback(config) # changes files to best (otherwise trials overwrite standard I/O)
