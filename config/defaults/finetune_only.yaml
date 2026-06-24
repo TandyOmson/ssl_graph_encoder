@@ -11,7 +11,7 @@ datadir: data  # processed data, checkpoints, models
 objective: knn_rmse
 classification: False # edit metrics if classifying
 
-# REQUIRED IF PRETRAINING ONLY
+# REQUIRED IF FINETUNING ONLY
 trained_encoder_file: temp_trained_encoder.pt
 # if using a language model, specify graph to SMILES conversion (i know this is long, but have to keep consistent inputs) the model must take in raw smiles, doing its own one-hot encoding (and vocab)
 use_smiles: False
