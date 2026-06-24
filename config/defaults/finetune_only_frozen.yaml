@@ -26,7 +26,7 @@ prediction_head:
     use_layernorm: True
 
 finetune:
-  freeze_encoder: False
+  freeze_encoder: True
   batch_size: 32
   epochs: 2
   optimizer:
