@@ -141,7 +141,7 @@ torch.save((valid_data, valid_slices), f"{base_name_confs}_val.pt")
 # --- Save SMILES --- #
 train_smis = [smis[i] for i in train_idx]
 valid_smis = [smis[i] for i in valid_idx]
-test_smis  = [smis[i] for i in test_i
+test_smis  = [smis[i] for i in test_idx]
 
 with open(f"{base_name}_train.smi", "w") as f:
     f.write("\n".join(train_smis) + "\n")
