@@ -20,105 +20,6 @@ def _get_module_device(module):
 def _batch_to_device(batch, device):
     return batch.to(device) if hasattr(batch, "to") else batch
 
-def local_spearman(embeddings, labels, k=100):
-    """
-    Compute Spearman correlation between embedding distances and activity differences
-    restricted to each point's k nearest neighbors.
-    """
-    N = embeddings.shape[0]
-    nbrs = NearestNeighbors(n_neighbors=k+1, metric='euclidean').fit(embeddings)
-    distances, indices = nbrs.kneighbors(embeddings)
-
-    # Remove self-distance (first column)
-    distances = distances[:, 1:]
-    indices = indices[:, 1:]
-
-    emb_dist_list = []
-    label_diff_list = []
-
-    for i in range(N):
-        emb_dist_list.extend(distances[i])
-        label_diff_list.extend(np.abs(labels[i] - labels[indices[i]]))
-
-    spearman_corr, _ = spearmanr(emb_dist_list, label_diff_list)
-    return spearman_corr
-
-def supervised_embedding_eval(embeddings, labels):
-    """Evaluate embeddings against labels:
-    Ridge regression RMSE/R2
-    kNN regression RMSE/R2
-    Spearman correlation between embedding distances and label differences
-    """
-
-    X_train, X_test, y_train, y_test = train_test_split(
-        embeddings, labels, test_size=0.2, random_state=42
-    )
-
-    # Standardize embeddings
-    scaler = StandardScaler()
-    X_train = scaler.fit_transform(X_train)
-    X_test = scaler.transform(X_test)
-
-    # Ridge Regression (global)
-    lr = Ridge(alpha=1.0)
-    lr.fit(X_train, y_train)
-    lr_preds = lr.predict(X_test)
-
-    lr_rmse = np.sqrt(mean_squared_error(y_test, lr_preds))
-    lr_r2 = r2_score(y_test, lr_preds)
-
-    # kNN Regression (local)
-    knn = KNeighborsRegressor(n_neighbors=5)
-    knn.fit(X_train, y_train)
-    knn_preds = knn.predict(X_test)
-
-    knn_rmse = np.sqrt(mean_squared_error(y_test, knn_preds))
-    knn_r2 = r2_score(y_test, knn_preds)
-
-    # Spearman correlation (embedding distances vs activity differences)
-    spearman_corr = local_spearman(embeddings, labels, k=10)
-
-    return lr_rmse, lr_r2, knn_rmse, knn_r2, spearman_corr
-
-
-def unsupervised_embedding_eval(embeddings, sample_size=np.inf):
-    """Evaluate embeddings without labels:
-    Spread (mean and median pairwise distances)
-    Distance distribution (coefficient of variation)
-    """
-
-    embeddings = embeddings[np.random.permutation(embeddings.shape[0])[:sample_size]]
-
-    pairwise_distances = pdist(embeddings, metric='euclidean')
-    distances_flat = pairwise_distances.flatten()
-
-    mean_distance = np.mean(distances_flat)
-    median_distance = np.median(distances_flat)
-    distance_variation = np.std(distances_flat) / mean_distance if mean_distance > 0 else 0
-
-    return mean_distance, median_distance, distance_variation
-
-def evaluate_full_model(model, val_loader):
-    """ Evaluate RMSE and R2 of the full model on the test set
-    """
-    model.eval()
-    device = _get_module_device(model)
-    all_preds = []
-    all_labels = []
-    with torch.no_grad():
-        for data in val_loader:
-            data = _batch_to_device(data, device)
-            preds = model(data)
-            all_preds.append(preds.cpu().numpy())
-            all_labels.append(data.y.cpu().numpy())
-
-    all_labels = np.concatenate(all_labels).flatten()
-    all_preds = np.concatenate(all_preds).flatten()
-
-    rmse = np.sqrt(mean_squared_error(all_labels, all_preds))
-    r2 = r2_score(all_labels, all_preds)
-    return rmse, r2
-
 def encoder_embeddings_out(trained_encoder, dataloader, sample_size=np.inf):
     """ Extract embeddings from the trained encoder, save them as npy 
     """
@@ -146,41 +47,44 @@ def encoder_embeddings_out(trained_encoder, dataloader, sample_size=np.inf):
 
     return embeddings_np, labels_np
 
-#
-# Evaluation methods for classification tasks
-#
-def supervised_embedding_eval_classification(embeddings, labels):
-    """ Evaluate embeddings against discrete labels for classification
-        Rigde classification
-        KNN classification
+def compute_embedding_splits(encoder, loaders):
+    train_loader, test_loader, val_loader = loaders
+
+    train_embed, train_labels = encoder_embeddings_out(encoder, train_loader, sample_size=4000)
+    test_embed, test_labels = encoder_embeddings_out(encoder, test_loader, sample_size=500)
+    val_embed, val_labels = encoder_embeddings_out(encoder, val_loader, sample_size=500)
+
+    embeddings = np.concatenate([train_embed, test_embed, val_embed], axis=0)
+    labels = np.concatenate([train_labels, test_labels, val_labels], axis=0)
+
+    split_idxs = [
+        np.arange(0, train_embed.shape[0]),
+        np.arange(train_embed.shape[0], train_embed.shape[0] + test_embed.shape[0]),
+        np.arange(train_embed.shape[0] + test_embed.shape[0], embeddings.shape[0]),
+    ]
+
+    return embeddings, labels, split_idxs, test_embed
+
+def evaluate_full_model(model, val_loader):
+    """ Evaluate RMSE and R2 of the full model on the test set
     """
+    model.eval()
+    device = _get_module_device(model)
+    all_preds = []
+    all_labels = []
+    with torch.no_grad():
+        for data in val_loader:
+            data = _batch_to_device(data, device)
+            preds = model(data)
+            all_preds.append(preds.cpu().numpy())
+            all_labels.append(data.y.cpu().numpy())
 
-    X_train, X_test, y_train, y_test = train_test_split(
-        embeddings, labels, test_size=0.2, random_state=42
-    )
+    all_labels = np.concatenate(all_labels).flatten()
+    all_preds = np.concatenate(all_preds).flatten()
 
-    # Standardize embeddings
-    scaler = StandardScaler()
-    X_train = scaler.fit_transform(X_train)
-    X_test = scaler.transform(X_test)
-
-    # Ridge Classification (global)
-    clf = RidgeClassifier(alpha=1.0)
-    clf.fit(X_train, y_train)
-    clf_preds = clf.predict(X_test)
-
-    lr_acc = accuracy_score(y_test, clf_preds)
-    lr_f1 = f1_score(y_test, clf_preds, average='weighted') # average only applies if multi-class
-
-    # kNN Classification (local)
-    knn_clf = KNeighborsClassifier(n_neighbors=5)
-    knn_clf.fit(X_train, y_train)
-    knn_preds = knn_clf.predict(X_test)
-
-    knn_acc = accuracy_score(y_test, knn_preds)
-    knn_f1 = f1_score(y_test, knn_preds, average='weighted')
-
-    return lr_acc, lr_f1, knn_acc, knn_f1
+    rmse = np.sqrt(mean_squared_error(all_labels, all_preds))
+    r2 = r2_score(all_labels, all_preds)
+    return rmse, r2
 
 def evaluate_full_model_classification(model, val_loader):
     """ Evaluate accuaracy and F1 of the full model on the test set

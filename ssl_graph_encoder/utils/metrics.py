@@ -1,4 +1,4 @@
-from sklearn.linear_model import Ridge, RidgeClassifier
+from sklearn.linear_model import Ridge, LogisticRegression
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import mean_squared_error, r2_score, accuracy_score, f1_score
 from sklearn.neighbors import KNeighborsRegressor, NearestNeighbors, KNeighborsClassifier
@@ -90,3 +90,60 @@ def knn_reg(embeddings, labels, split_idxs):
     knn_rmse = np.sqrt(mean_squared_error(y_test, preds))
     knn_r2 = r2_score(y_test, preds)
     return {"knn_rmse": knn_rmse, "knn_r2": knn_r2}
+
+
+def logistic_clf(embeddings, labels, split_idxs):
+    X_train, X_test, X_val = embeddings[split_idxs[0], :], embeddings[split_idxs[1], :], embeddings[split_idxs[2], :]
+    y_train, y_test, y_val = labels[split_idxs[0]], labels[split_idxs[1]], labels[split_idxs[2]]
+
+    # optimise C (inverse of regularisation strength)
+    best_res = -np.inf
+    best_C = 1.0
+
+    for C in np.linspace(0.1, 10, 50):
+        clf = LogisticRegression(C=C, max_iter=1000)
+        clf.fit(X_train, y_train)
+
+        preds = clf.predict(X_val)
+        res = f1_score(y_val, preds, average="macro")  # robust for imbalance
+
+        if res > best_res:
+            best_res = res
+            best_C = C
+
+    clf = LogisticRegression(C=best_C, max_iter=1000)
+    clf.fit(X_train, y_train)
+    preds = clf.predict(X_test)
+
+    acc = accuracy_score(y_test, preds)
+    f1 = f1_score(y_test, preds, average="macro")
+
+    return {"logreg_acc": acc, "logreg_f1": f1}
+
+def knn_clf(embeddings, labels, split_idxs):
+    X_train, X_test, X_val = embeddings[split_idxs[0], :], embeddings[split_idxs[1], :], embeddings[split_idxs[2], :]
+    y_train, y_test, y_val = labels[split_idxs[0]], labels[split_idxs[1]], labels[split_idxs[2]]
+
+    # optimise k using val set
+    best_res = -np.inf
+    best_k = 5
+
+    for k in np.arange(5, 25, 5):
+        knn = KNeighborsClassifier(n_neighbors=int(k))
+        knn.fit(X_train, y_train)
+
+        preds = knn.predict(X_val)
+        res = f1_score(y_val, preds, average="macro")
+
+        if res > best_res:
+            best_res = res
+            best_k = int(k)
+
+    knn = KNeighborsClassifier(n_neighbors=best_k)
+    knn.fit(X_train, y_train)
+    preds = knn.predict(X_test)
+
+    acc = accuracy_score(y_test, preds)
+    f1 = f1_score(y_test, preds, average="macro")
+
+    return {"knn_acc": acc, "knn_f1": f1}

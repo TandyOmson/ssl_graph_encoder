@@ -3,6 +3,8 @@
 import torch
 import copy
 import importlib
+import logging
+import sys
 
 def load_class(class_path):
     module_name, class_name = class_path.rsplit(".", 1)
@@ -90,3 +92,58 @@ def load_full_model(path, map_location="cpu"):
     head.eval()
 
     return encoder, head, payload
+
+def setup_logging(log_dir):
+    """ configure logging
+    """
+    log = logging.getLogger()
+    log.setLevel(logging.DEBUG)
+    
+    try:
+        log_dir.mkdir(parents=False, exist_ok=False)
+    except FileExistsError:
+        raise Exception(f"Log directory {log_dir} already exists. Exiting...")
+
+    formatter = logging.Formatter(
+        fmt="%(asctime)s | %(name)s | %(levelname)s | %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+
+    # stdout (debug level) 
+    console = logging.StreamHandler(stream=sys.stdout)
+    console.setLevel(logging.DEBUG)
+    console.setFormatter(formatter)
+    log.addHandler(console)
+
+    # run log 
+    run_handler = logging.FileHandler(log_dir / "run.log", mode="w")
+    run_handler.setLevel(logging.INFO)
+    run_handler.setFormatter(formatter)
+    log.addHandler(run_handler)
+
+    # detail log 
+    detail_handler = logging.FileHandler(log_dir / "detail.log", mode="w")
+    detail_handler.setLevel(logging.DEBUG)
+    detail_handler.setFormatter(formatter)
+    log.addHandler(detail_handler)
+
+    # pretrain and finetune loggers
+    pretrain_logger = logging.getLogger("pretrain")
+    pretrain_logger.setLevel(logging.INFO)
+
+    data_handler = logging.FileHandler(log_dir / "pretrain.dat", mode="w")
+    data_handler.setFormatter(logging.Formatter("%(message)s"))
+
+    pretrain_logger.addHandler(data_handler)
+    pretrain_logger.propagate = False # prevent duplication to root logs
+
+    finetune_logger = logging.getLogger("finetune")
+    finetune_logger.setLevel(logging.INFO)
+
+    data_handler = logging.FileHandler(log_dir / "finetune.dat", mode="w")
+    data_handler.setFormatter(logging.Formatter("%(message)s"))
+
+    finetune_logger.addHandler(data_handler)
+    finetune_logger.propagate = False # prevent duplication to root logs
+
+    return

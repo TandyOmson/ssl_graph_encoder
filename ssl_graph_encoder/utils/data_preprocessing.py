@@ -8,6 +8,7 @@ import torch
 import torch_geometric
 from torch.utils.data import random_split
 from torch_geometric.data import InMemoryDataset
+from torch_geometric.loader import DataLoader
 
 from ssl_graph_encoder.utils.smiles_to_graph import graph_to_rdmol
 from rdkit import Chem
@@ -37,13 +38,13 @@ class MoleculeDataset(InMemoryDataset):
         view2 = self.aug_2.aug_func(data)
 
         # verify that view1 and view do represent the same SMILES?
-        datamol = graph_to_rdmol(data)
-        view1mol = graph_to_rdmol(view1)
-        view2mol = graph_to_rdmol(view2)
+        # datamol = graph_to_rdmol(data)
+        # view1mol = graph_to_rdmol(view1)
+        # view2mol = graph_to_rdmol(view2)
 
-        datasmi = Chem.CanonSmiles(Chem.MolToSmiles(datamol))
-        view1smi = Chem.CanonSmiles(Chem.MolToSmiles(view1mol))
-        view2smi = Chem.CanonSmiles(Chem.MolToSmiles(view2mol))
+        # datasmi = Chem.CanonSmiles(Chem.MolToSmiles(datamol))
+        # view1smi = Chem.CanonSmiles(Chem.MolToSmiles(view1mol))
+        # view2smi = Chem.CanonSmiles(Chem.MolToSmiles(view2mol))
 
         # this may not work if the views change chemical composition
         # mainly for conformer or other 3D peturbations
@@ -72,3 +73,13 @@ def split_dataset(dataset, val_frac=0.1, test_frac=0.1, random_seed=42):
         generator=generator
     )
     return train_dataset, val_dataset, test_dataset
+
+def make_loader(dataset, config, shuffle=True):
+    return DataLoader(
+        dataset,
+        batch_size=config["pretrain"]["batch_size"],
+        shuffle=shuffle,
+        num_workers=config["pretrain"].get("loader_worker_num", 4),
+        pin_memory=True,
+        persistent_workers=True,
+    )
