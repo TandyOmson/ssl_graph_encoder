@@ -69,16 +69,16 @@ class BestTrialCallback:
             src = Path(self.config["outdir"] / "result.json")
             src.replace(src.with_stem(f"result_best"))
             # data/processed/{base_name}_pretrained.npz
-            src = Path(self.config["datadir"] / "processed" / f"{self.config['run_name']}_pretrained.npz")
+            src = Path(self.config["outdir"] / f"{self.config['run_name']}_pretrained.npz")
             src.replace(src.with_stem(f"{self.config['run_name']}_pretrained_best"))
             # data/processed/{base_name}_finetuned.npz
-            src = Path(self.config["datadir"] / "processed" / f"{self.config['run_name']}_finetuned.npz")
+            src = Path(self.config["outdir"] /  f"{self.config['run_name']}_finetuned.npz")
             src.replace(src.with_stem(f"{self.config['run_name']}_finetuned_best"))
             # data/models/{base_name}_pretrained_encoder.pt
-            src = Path(self.config["datadir"] / "models" / f"{self.config['run_name']}_pretrained_encoder.pt")
+            src = Path(self.config["outdir"] /  f"{self.config['run_name']}_pretrained_encoder.pt")
             src.replace(src.with_stem(f"{self.config['run_name']}_pretrained_encoder_best"))
             # data/models/{base_name}_model.pt
-            src = Path(self.config["datadir"] / "models" / f"{self.config['run_name']}_model.pt")
+            src = Path(self.config["outdir"] /  f"{self.config['run_name']}_model.pt")
             src.replace(src.with_stem(f"{self.config['run_name']}_model_best"))
             return 
         else:

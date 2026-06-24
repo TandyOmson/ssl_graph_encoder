@@ -15,7 +15,7 @@ from torch_geometric.datasets import TUDataset
 import optuna
 
 # from the installed sll_graph_encoder package
-from ssl_graph_encoder.utils.data_preprocessing import MoleculeDataset, split_dataset, make_loader
+from ssl_graph_encoder.utils.data_preprocessing import MoleculeDataset, SmilesDataset, split_dataset, make_loader
 from ssl_graph_encoder.utils.evaluate_embeddings import evaluate_full_model, evaluate_full_model_classification, encoder_embeddings_out, compute_embedding_splits
 from ssl_graph_encoder.training.pretrain import build_pretrain_encoder, PretrainTrainer
 from ssl_graph_encoder.training.finetune import build_finetune_model, FinetuneTrainer
@@ -45,7 +45,11 @@ class Objective:
         config = self.make_config(trial)
         self.embed_evaluator = EmbeddingEvaluator(config["metrics"])
         
-        self.prepare_data(config)
+        if not config.get("use_smiles", False):
+            self.prepare_data(config)
+        else:
+            # This is only an option so that I can sneak in language models to finetuning step for like-for-like comparisons. Dont use regularly
+            self.prepare_smiles_data(config)
 
         results = {}
         if config.get("pretrain", False):
@@ -107,14 +111,22 @@ class Objective:
             self.val_loader = make_loader(val_dataset, config, shuffle=False) 
         return 
     
-    def build_graph_encoder_ssl(self, config):
+    def prepare_smiles_data(self, config):
+        # again, this is only used to sneak in language models to finetuning step, not for regular use
+        train_dataset = SmilesDataset(config["train_file"])
+        test_dataset = SmilesDataset(config["test_file"])
+        val_dataset = SmilesDataset(config["val_file"])
+
+        self.train_loader = make_loader(train_dataset, config, shuffle=True)
+        self.test_loader  = make_loader(test_dataset, config, shuffle=False)
+        self.val_loader = make_loader(val_dataset, config, shuffle=False) 
+        return 
+
+    def run_pretrain(self, config):
         feat_dim = self.train_loader.dataset[0].x.size(-1)
         config["feat_dim"] = feat_dim
         self.graph_encoder_ssl = build_pretrain_encoder(feat_dim, config["encoder"]["embed_dim"], config)
-        return
 
-    def run_pretrain(self, config):
-        self.build_graph_encoder_ssl(config)
         pretrain_trainer = PretrainTrainer(self.device, config)
         self.encoder = pretrain_trainer.fit(self.graph_encoder_ssl, self.train_loader)
         
@@ -149,12 +161,9 @@ class Objective:
         log.debug("PRETRAIN EMBEDDING STATS:\n" + pprint.pformat(self.embed_evaluator.results, width=1))
         return metrics
 
-    def build_model(self, config):
-        self.model = build_finetune_model(self.encoder, config)
-        return
-    
     def run_finetune(self, config):
-        self.build_model(config)
+        self.model = build_finetune_model(self.encoder, config)
+
         finetune_trainer = FinetuneTrainer(self.device, config)
         self.model, self.encoder = finetune_trainer.fit(self.model, self.train_loader, self.test_loader)
 

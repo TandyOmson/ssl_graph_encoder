@@ -1,0 +1,46 @@
+# Allows for running from a pretrained encoder
+# If using another architecture and just doing supervised training, use an encoder with randomised parameters
+train_file: temp_combined_train.pt
+test_file: temp_combined_test.pt
+val_file: temp_combined_val.pt
+
+download: False # overrides datafile, retrieves from available TUDatasets
+download_name: NCI1
+datadir: data  # processed data, checkpoints, models
+
+objective: knn_rmse
+classification: False # edit metrics if classifying
+
+# REQUIRED IF PRETRAINING ONLY
+trained_encoder_file: temp_trained_encoder.pt
+# if using a language model, specify graph to SMILES conversion (i know this is long, but have to keep consistent inputs) the model must take in raw smiles, doing its own one-hot encoding (and vocab)
+use_smiles: False
+
+prediction_head:
+  class_path: models.pred_heads.regression_head.RegressionHead
+  kwargs:
+    hidden_dim : 128
+    num_layers: 5
+    dropout: 0.1
+    activation: relu
+    use_layernorm: True
+
+finetune:
+  freeze_encoder: False
+  batch_size: 32
+  epochs: 2
+  optimizer:
+    class_path: torch.optim.AdamW
+    kwargs:
+      lr: 1.0e-3
+      weight_decay: 1.0e-4
+  criterion:
+    class_path: torch.nn.MSELoss # default MSELoss for reg or BCEWithLogitsLoss for classification
+    kwargs: {}
+
+# metrics are found in ssl_graph_encoder.utils, just put the method name with the optional field kwargs
+metrics:
+  pairwise_distances: {}
+  local_spearman: {}
+  ridge_reg: {}
+  knn_reg: {}

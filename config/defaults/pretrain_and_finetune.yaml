@@ -1,0 +1,59 @@
+train_file: temp_combined_train.pt
+test_file: temp_combined_test.pt
+val_file: temp_combined_val.pt
+
+download: False # overrides datafile, retrieves from available TUDatasets
+download_name: NCI1
+datadir: data  # processed data, checkpoints, models
+
+objective: knn_rmse
+classification: False # edit metrics if classifying
+
+encoder:
+  class_path: ssl_graph_encoder.models.encoders.pairwise_rbf.PairwiseRBFEncoder
+  embed_dim: 64
+  kwargs:
+    {}
+        
+ssl_nn:
+  class_path: ssl_graph_encoder.models.ssl.methods.graphCL_3D.GraphCL
+  kwargs:
+    other_confs_file: confs_temp_combined.pt # retrieved by sample_ids, so does not need splitting
+    temperature: 0.1
+
+pretrain:
+  batch_size: 32
+  epochs: 2
+  optimizer:
+    class_path: torch.optim.Adam
+    kwargs:
+      lr: 1.0e-3
+
+prediction_head:
+  class_path: models.pred_heads.regression_head.RegressionHead
+  kwargs:
+    hidden_dim : 128
+    num_layers: 5
+    dropout: 0.1
+    activation: relu
+    use_layernorm: True
+
+finetune:
+  freeze_encoder: False
+  batch_size: 32
+  epochs: 2
+  optimizer:
+    class_path: torch.optim.AdamW
+    kwargs:
+      lr: 1.0e-3
+      weight_decay: 1.0e-4
+  criterion:
+    class_path: torch.nn.MSELoss # default MSELoss for reg or BCEWithLogitsLoss for classification
+    kwargs: {}
+
+# metrics are found in ssl_graph_encoder.utils, just put the method name with the optional field kwargs
+metrics:
+  pairwise_distances: {}
+  local_spearman: {}
+  ridge_reg: {}
+  knn_reg: {}

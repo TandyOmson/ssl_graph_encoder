@@ -56,6 +56,24 @@ class MoleculeDataset(InMemoryDataset):
         #     raise Exception("Views do not represent the same molecule!")
 
         return view1, view2
+    
+class SmilesDataset(InMemoryDataset):
+    def __init__(self, path):
+        super().__init__()
+        # required to avoid a weights_only=False error, may need to rethink if adding extra data (such as attr names)
+        torch.serialization.add_safe_globals([
+            torch_geometric.data.data.DataEdgeAttr, 
+            torch_geometric.data.data.DataTensorAttr,
+            torch_geometric.data.storage.GlobalStorage
+            ])
+        self.data, self.slices = torch.load(path)
+
+    def get(self, idx):
+        data = super().get(idx)
+        datamol = graph_to_rdmol(data)
+        smi = Chem.CanonSmiles(Chem.MolToSmiles(datamol))
+        
+        return smi
 
 def split_dataset(dataset, val_frac=0.1, test_frac=0.1, random_seed=42):
     """ Split dataset into train/val/test sets
