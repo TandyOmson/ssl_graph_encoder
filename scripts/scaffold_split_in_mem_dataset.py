@@ -62,16 +62,13 @@ def rdkit_scaffold_split(mols, frac_train=0.8, frac_test=0.1, frac_valid=0.1):
 parser = argparse.ArgumentParser()
 parser.add_argument("--smi", required=True, help="Original .smi file used to generate 3d data")
 parser.add_argument("--pt", required=True, help="3d .pt file with dataset")
-parser.add_argument("--confs", required=True, help="3d .pt file with alternative conformers")
+#parser.add_argument("--confs", required=True, help="3d .pt file with alternative conformers")
 args = parser.parse_args()
 
 smis = [i.strip() for i in open(args.smi, "r").readlines()]
 
 data, slices = torch.load(args.pt, weights_only=False)
 base_name = ".".join(args.pt.split(".")[:-1])
-
-confs_data, confs_slices = torch.load(args.confs, weights_only=False)
-base_name_confs = ".".join(args.confs.split(".")[:-1])
 
 # filter for failures
 smis = [smis[i] for i in data.sample_id]
@@ -84,10 +81,6 @@ dataset = InMemoryDataset()
 dataset.data = data
 dataset.slices = slices
 
-confs_dataset = InMemoryDataset()
-confs_dataset.data = confs_data
-confs_dataset.slices = confs_slices
-
 graphs = [dataset.get(i) for i in train_idx]
 train_data, train_slices = InMemoryDataset.collate(graphs)
 torch.save((train_data, train_slices), f"{base_name}_train.pt")    
@@ -98,45 +91,52 @@ torch.save((test_data, test_slices), f"{base_name}_test.pt")
 
 graphs = [dataset.get(i) for i in valid_idx]
 valid_data, valid_slices = InMemoryDataset.collate(graphs)
-torch.save((valid_data, valid_slices), f"{base_name}_val.pt")    
+torch.save((valid_data, valid_slices), f"{base_name}_val.pt")
 
-mol_to_confs = {}
-for i in range(confs_dataset.len()):
-    data_i = confs_dataset.get(i)
-    sid = int(data_i.sample_id)
+#confs_data, confs_slices = torch.load(args.confs, weights_only=False)
+#base_name_confs = ".".join(args.confs.split(".")[:-1])
 
-    if sid not in mol_to_confs:
-        mol_to_confs[sid] = []
-    mol_to_confs[sid].append(i)
+#confs_dataset = InMemoryDataset()
+#confs_dataset.data = confs_data
+#confs_dataset.slices = confs_slices
 
-# --- Expand splits from molecule → conformers ---
-train_confs_idx = []
-for i in train_idx:
-    if i in mol_to_confs:
-        train_confs_idx.extend(mol_to_confs[i])
+#mol_to_confs = {}
+#for i in range(confs_dataset.len()):
+#    data_i = confs_dataset.get(i)
+#    sid = int(data_i.sample_id)
+#
+#    if sid not in mol_to_confs:
+#        mol_to_confs[sid] = []
+#    mol_to_confs[sid].append(i)
+#
+## --- Expand splits from molecule → conformers ---
+#train_confs_idx = []
+#for i in train_idx:
+#    if i in mol_to_confs:
+#        train_confs_idx.extend(mol_to_confs[i])
 
-valid_confs_idx = []
-for i in valid_idx:
-    if i in mol_to_confs:
-        valid_confs_idx.extend(mol_to_confs[i])
-
-test_confs_idx = []
-for i in test_idx:
-    if i in mol_to_confs:
-        test_confs_idx.extend(mol_to_confs[i])
+#valid_confs_idx = []
+#for i in valid_idx:
+#    if i in mol_to_confs:
+#        valid_confs_idx.extend(mol_to_confs[i])
+#
+#test_confs_idx = []
+#for i in test_idx:
+#    if i in mol_to_confs:
+#        test_confs_idx.extend(mol_to_confs[i])
 
 # --- Save conformer datasets ---
-graphs = [confs_dataset.get(i) for i in train_confs_idx]
-train_data, train_slices = InMemoryDataset.collate(graphs)
-torch.save((train_data, train_slices), f"{base_name_confs}_train.pt")
-
-graphs = [confs_dataset.get(i) for i in test_confs_idx]
-test_data, test_slices = InMemoryDataset.collate(graphs)
-torch.save((test_data, test_slices), f"{base_name_confs}_test.pt")
-
-graphs = [confs_dataset.get(i) for i in valid_confs_idx]
-valid_data, valid_slices = InMemoryDataset.collate(graphs)
-torch.save((valid_data, valid_slices), f"{base_name_confs}_val.pt")
+#graphs = [confs_dataset.get(i) for i in train_confs_idx]
+#train_data, train_slices = InMemoryDataset.collate(graphs)
+#torch.save((train_data, train_slices), f"{base_name_confs}_train.pt")
+#
+#graphs = [confs_dataset.get(i) for i in test_confs_idx]
+#test_data, test_slices = InMemoryDataset.collate(graphs)
+#torch.save((test_data, test_slices), f"{base_name_confs}_test.pt")
+#
+#graphs = [confs_dataset.get(i) for i in valid_confs_idx]
+#valid_data, valid_slices = InMemoryDataset.collate(graphs)
+#torch.save((valid_data, valid_slices), f"{base_name_confs}_val.pt")
 
 # --- Save SMILES --- #
 train_smis = [smis[i] for i in train_idx]

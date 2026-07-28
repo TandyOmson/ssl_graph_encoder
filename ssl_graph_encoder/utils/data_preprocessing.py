@@ -118,7 +118,7 @@ def make_loader(dataset, config, shuffle=True):
             dataset,
             batch_size=config["pretrain"]["batch_size"],
             shuffle=shuffle,
-            num_workers=config["pretrain"].get("loader_worker_num", 4),
+            num_workers=config["pretrain"].get("loader_worker_num", 8),
             pin_memory=True,
             persistent_workers=True,
         )
@@ -127,7 +127,7 @@ def make_loader(dataset, config, shuffle=True):
             dataset,
             batch_size=config["finetune"]["batch_size"],
             shuffle=shuffle,
-            num_workers=config["finetune"].get("loader_worker_num", 4),
+            num_workers=config["finetune"].get("loader_worker_num", 8),
             pin_memory=True,
             persistent_workers=True,
         )
