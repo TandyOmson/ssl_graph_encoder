@@ -193,6 +193,7 @@ class Objective:
                                 )
 
         embeddings, labels, split_idxs, test_embed = compute_embedding_splits(self.encoder, (self.train_loader, self.test_loader, self.val_loader))
+        self.embed_evaluator.unsupervised_eval(test_embed)
         self.embed_evaluator.supervised_eval(embeddings, labels, split_idxs)
         metrics = self.embed_evaluator.results
 
