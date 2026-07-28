@@ -55,7 +55,7 @@ class Objective:
         if config.get("pretrain", False):
             log.info("=== PRETRAIN START ===")
             metrics = self.run_pretrain(config)
-            results["pretrain"] = metrics
+            results["pretrain"] = copy.deepcopy(metrics)
             
         # if there is no pretraining, a file with encoder architecture is expected
         else:
@@ -78,7 +78,7 @@ class Objective:
         if config.get("finetune", False):
             log.info("=== FINETUNE START ===")
             metrics = self.run_finetune(config)
-            results["finetune"] = metrics
+            results["finetune"] = copy.deepcopy(metrics)
         
         results["score"] = metrics[config["objective"]]
         with open(config["outdir"] / "result.json", "w") as fw:
