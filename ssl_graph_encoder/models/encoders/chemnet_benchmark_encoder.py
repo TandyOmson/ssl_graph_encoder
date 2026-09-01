@@ -53,12 +53,12 @@ class SmilesEncoder(nn.Module):
             batch_first=True,
         )
 
-        self.fc = nn.Linear(
-            hidden_dim,
-            feat_dim,
-        )
+        #self.fc = nn.Linear(
+        #    hidden_dim,
+        #    feat_dim,
+        #)
 
-        self.output_dim = feat_dim
+        self.output_dim = hidden_dim
 
     def encode_smiles(self, smiles_list):
         batch_tokens = []
@@ -101,4 +101,4 @@ class SmilesEncoder(nn.Module):
         # final LSTM layer hidden state
         h = h_n[-1]
 
-        return self.fc(h)
+        return h

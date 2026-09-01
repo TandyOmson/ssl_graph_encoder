@@ -8,26 +8,7 @@ import torch
 import torch.nn as nn
 from ssl_graph_encoder.models.encoders.ecfp4_benchmark_encoder import ECFP4Encoder
 
-def load_smiles(file):
-    with open(file, "r") as f:
-        return [line.strip() for line in f if line.strip()]
-
-def build_vocab(smiles_list):
-    charset = set()
-    for smi in smiles_list:
-        charset.update(list(smi))
-
-    charset = sorted(list(charset))
-
-    stoi = {c: i + 1 for i, c in enumerate(charset)}  # 0 = padding
-    unk_idx = len(stoi) + 1
-
-    return stoi, unk_idx
-
 def main(args):
-    smiles = load_smiles(args.smiles_file)
-    # vocab
-    stoi, unk_idx = build_vocab(smiles)
     # model
     model = ECFP4Encoder(
         feat_dim=None,
@@ -51,7 +32,6 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--smiles_file", required=True)
     parser.add_argument("--outfile", required=True)
 
     parser.add_argument("--embed_dim", type=int, default=128)

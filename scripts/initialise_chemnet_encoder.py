@@ -35,7 +35,6 @@ def main(args):
         stoi=stoi,
         unk_idx=unk_idx,
         hidden_dim=args.hidden_dim,
-        num_layers=args.num_layers,
         max_len=args.max_len,
     )
 
@@ -48,13 +47,12 @@ def main(args):
     payload = {
         "encoder_class_path": "ssl_graph_encoder.models.encoders.chemnet_benchmark_encoder.SmilesEncoder",
         "feat_dim": None,  # no node features like GNN
-        "embed_dim": model.output_dim,
+        "embed_dim": args.embed_dim,
         "encoder_kwargs": {
             "kwargs": {
                 "stoi": stoi,
                 "unk_idx": unk_idx,
                 "hidden_dim": args.hidden_dim,
-                "num_layers": args.num_layers,
                 "max_len": args.max_len,
             }
         },
