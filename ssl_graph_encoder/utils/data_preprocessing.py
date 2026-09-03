@@ -70,12 +70,12 @@ class SmilesDataset(InMemoryDataset):
 
     def get(self, idx):
         data = super().get(idx)
-        datamol = graph_to_rdmol(data)
-        smi = Chem.CanonSmiles(Chem.MolToSmiles(datamol))
+        # datamol = graph_to_rdmol(data)
+        # smi = Chem.CanonSmiles(Chem.MolToSmiles(datamol))
         
-        data = Data()
-        data.smiles = smi
-        data.y = self.data.y[idx]
+        # data = Data()
+        # data.smiles = smi
+        # data.y = self.data.y[idx]
 
         return data
 
