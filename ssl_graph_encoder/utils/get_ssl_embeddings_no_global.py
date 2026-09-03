@@ -6,6 +6,7 @@ from ssl_graph_encoder.utils.smiles_to_graph import SmilesToGraph
 from ssl_graph_encoder.utils.model_io import load_pretrained_encoder
 
 import torch
+from torch_geometric.data import Data
 from pathlib import Path
 import numpy as np
 
@@ -26,3 +27,15 @@ class sslEmbeddings:
             emb = self.encoder(z)
         
         return emb.to("cpu").numpy().astype(np.float64)
+
+class sslEmbeddingsLM:
+    def __init__(self, encoder_file, smiles_to_graph_file, map_location="cpu"):
+        self.encoder, self.stg = get_model(encoder_file, smiles_to_graph_file, map_location)
+
+    def get_embeddings(self, smi):
+        data = Data()
+        data.smiles = smi
+        with torch.no_grad():
+            emb = self.encoder(data)
+        
+        return emb

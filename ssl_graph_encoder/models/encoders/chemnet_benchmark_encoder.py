@@ -27,14 +27,14 @@ class SmilesEncoder(nn.Module):
 
         self.conv1 = nn.Conv1d(
             embed_dim,
-            128,
+            256,
             kernel_size=5,
             padding=2,
         )
 
         self.conv2 = nn.Conv1d(
-            128,
-            128,
+            256,
+            256,
             kernel_size=5,
             padding=2,
         )
@@ -47,7 +47,7 @@ class SmilesEncoder(nn.Module):
         )
 
         self.lstm = nn.LSTM(
-            input_size=128,
+            input_size=256,
             hidden_size=hidden_dim,
             num_layers=2,
             batch_first=True,

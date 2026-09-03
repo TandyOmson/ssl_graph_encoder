@@ -12,7 +12,7 @@ from rdkit import Chem
 from rdkit.Chem import rdFingerprintGenerator
 from rdkit.DataStructs import ConvertToNumpyArray
 
-from ssl_graph_encoder.utils.get_ssl_embeddings_no_global import sslEmbeddings
+from ssl_graph_encoder.utils.get_ssl_embeddings_no_global import sslEmbeddings, sslEmbeddingsLM
 from ssl_graph_encoder.utils.frechet_distance import FrechetDistance
 from ssl_graph_encoder.utils.model_io import load_pretrained_encoder
 from ssl_graph_encoder.utils.smiles_to_graph import SmilesToGraph
@@ -238,10 +238,10 @@ def calculate_corr(embs, fps, block_size=512):
     return corr
 
 # load SMILES
-gen_smis = [i.strip() for i in open("random_transformer_gen.smi")]
-ref_smis = [i.strip() for i in open("training_set.smi")]
-#gen_smis = [i.strip() for i in open("gen_test.smi")]
-#ref_smis = [i.strip() for i in open("ref_test.smi")]
+#gen_smis = [i.strip() for i in open("random_transformer_gen.smi")]
+#ref_smis = [i.strip() for i in open("training_set.smi")]
+gen_smis = [i.strip() for i in open("gen_test.smi")]
+ref_smis = [i.strip() for i in open("ref_test.smi")]
 
 gen_smis = canonicalise(gen_smis)
 ref_smis = canonicalise(ref_smis)
@@ -252,7 +252,8 @@ print("SMILES loaded")
 #########################
 ### Generate encoding ###
 #########################
-names = ["benchmark_chemnet", "benchmark_ecfp4", "schnet"]
+names = ["benchmark_ecfp4", "language_model", "schnet"]
+lm = [True, True, False]
 stg_file = "/home/tcl25/Dself_sup_graph_learning/ssl_graph_encoder/data/datasets/hydros_minimal_split/hydros_minimal_stg_config.json"
 logs_dir="/home/tcl25/Dself_sup_graph_learning/ssl_graph_encoder/logs/hydros_final"
 encoder_files = [f"{logs_dir}/{i}/finetuned_encoder.pt" for i in names]
@@ -263,13 +264,16 @@ stg = SmilesToGraph.from_config(Path(stg_file))
 gen_embeddings = []
 ref_embeddings = []
 print("generating embeddings")
-for enc_file in encoder_files:
+for enc_file, is_lm in zip(encoder_files, lm):
     print(enc_file)
-    encoder = sslEmbeddings(enc_file, stg_file)
+    if is_lm:
+        print("language_model")
+        encoder = sslEmbeddingsLM(enc_file, stg_file)
+    else:
+        encoder = sslEmbeddings(enc_file, stg_file)
     #for name, p in encoder.encoder.named_parameters():
     #    print(name, p.flatten()[:5])
     #    break
-
     gen_embs, gen_fails = get_embeddings(gen_smis, encoder)
     ref_embs, ref_fails = get_embeddings(ref_smis, encoder)
     
@@ -300,8 +304,8 @@ ref_dict = {}
 for model_name, d in zip(names, ref_embeddings):
     ref_dict[f"{model_name}"] = d
 
-np.savez("gen_embeddings.npz", **gen_dict)
-np.savez("ref_embeddings.npz", **ref_dict)
+np.savez("test_gen_embeddings.npz", **gen_dict)
+np.savez("test_ref_embeddings.npz", **ref_dict)
 
 #all_stats = {}
 #for gen, ref, name in zip(gen_embeddings, ref_embeddings, names):    

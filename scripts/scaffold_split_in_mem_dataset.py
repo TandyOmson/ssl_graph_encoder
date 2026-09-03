@@ -81,22 +81,28 @@ dataset = InMemoryDataset()
 dataset.data = data
 dataset.slices = slices
 
-graphs = [dataset.get(i) for i in train_idx]
-train_data, train_slices = InMemoryDataset.collate(graphs)
-torch.save((train_data, train_slices), f"{base_name}_train.pt")    
-
-graphs = [dataset.get(i) for i in test_idx]
-test_data, test_slices = InMemoryDataset.collate(graphs)
-torch.save((test_data, test_slices), f"{base_name}_test.pt")    
-
-graphs = [dataset.get(i) for i in val_idx]
-val_data, val_slices = InMemoryDataset.collate(graphs)
-torch.save((val_data, val_slices), f"{base_name}_val.pt")
-
 # save SMILES
 train_smis = [smis[i] for i in train_idx]
 val_smis = [smis[i] for i in val_idx]
 test_smis  = [smis[i] for i in test_idx]
+
+graphs = [dataset.get(i) for i in train_idx]
+for count, i in enumerate(train_smis):
+    graphs[count].smiles = i
+train_data, train_slices = InMemoryDataset.collate(graphs)
+torch.save((train_data, train_slices), f"{base_name}_train.pt")    
+
+graphs = [dataset.get(i) for i in test_idx]
+for count, i in enumerate(test_smis):
+    graphs[count].smiles = i
+test_data, test_slices = InMemoryDataset.collate(graphs)
+torch.save((test_data, test_slices), f"{base_name}_test.pt")    
+
+graphs = [dataset.get(i) for i in val_idx]
+for count, i in enumerate(val_smis):
+    graphs[count].smiles = i
+val_data, val_slices = InMemoryDataset.collate(graphs)
+torch.save((val_data, val_slices), f"{base_name}_val.pt")
 
 with open(f"{base_name}_train.smi", "w") as f:
     f.write("\n".join(train_smis) + "\n")
@@ -107,22 +113,4 @@ with open(f"{base_name}_val.smi", "w") as f:
 with open(f"{base_name}_test.smi", "w") as f:
     f.write("\n".join(test_smis) + "\n")
 
-if args.labels:
-    train_labels = [data.y[i].item() for i in train_idx]
-    val_labels = [data.y[i].item() for i in val_idx]
-    test_labels  = [data.y[i].item() for i in test_idx]
 
-    dataset = InMemoryDataset()
-    dataset.smiles = train_smis
-    dataset.y = train_labels
-    torch.save(dataset, f"{base_name}_train_smis_labels.pt")
-
-    dataset = InMemoryDataset()
-    dataset.smiles = val_smis
-    dataset.y = val_labels
-    torch.save(dataset, f"{base_name}_val_smis_labels.pt")
-
-    dataset = InMemoryDataset()
-    dataset.smiles = test_smis
-    dataset.y = test_labels
-    torch.save(dataset, f"{base_name}_test_smis_labels.pt")
