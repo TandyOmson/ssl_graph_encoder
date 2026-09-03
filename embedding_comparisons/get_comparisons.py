@@ -78,22 +78,27 @@ def calculate_corr(emb_sim, fp_sim):
     # --- correlation ---
     print("Computing correlation...")
 
-    # n_pairs = 200000
+    #n_pairs = emb_sim.shape[0]
 
-    # rng = np.random.default_rng(0)
-    # i = rng.integers(0, len(embs), n_pairs)
-    # j = rng.integers(0, len(embs), n_pairs)
+    #rng = np.random.default_rng(0)
+    #i = rng.integers(0, emb_sim.shape[0]), n_pairs)
+    #j = rng.integers(0, emb_sim.shape[0]), n_pairs)
     
-    # mask = i != j
-    # i = i[mask]
-    # j = j[mask]
+    #mask = i != j
+    #i = i[mask]
+    #j = j[mask]
 
-    # emb_sim = emb_sim[i, j]
-    # fp_sim = fp_sim[i, j]
+    #emb_sim = emb_sim[i, j]
+    #fp_sim = fp_sim[i, j]
     
+    #corr, _ = spearmanr(
+    #    emb_sim,
+    #    fp_sim
+    #)
+
     corr, _ = spearmanr(
-        emb_sim,
-        fp_sim
+        emb_sim[np.triu_indices_from(emb_sim, k=1)],
+        fp_sim[np.triu_indices_from(fp_sim, k=1)]
     )
     return corr
 
@@ -115,39 +120,43 @@ def calculate_stats(gen_emb, ref_emb, ref_fps, n_top=10,
     print("split FD")
     split_fd = []
 
-    for i in range(n_bootstrap):
-
-        idx = rng.permutation(len(ref_emb))
-        half = len(idx) // 2
-
-        A = ref_emb[idx[:half]]
-        B = ref_emb[idx[half:]]
-
-        split_fd.append(fd_calc.evaluate(A, B))
-        print(f"bootstrap {i+1}", end="\r")
-        
-    split_fd = np.array(split_fd)
+    #for i in range(n_bootstrap):
+    #
+    #    idx = rng.permutation(len(ref_emb))
+    #    half = len(idx) // 2
+    #
+    #    A = ref_emb[idx[:half]]
+    #    B = ref_emb[idx[half:]]
+    #
+    #    split_fd.append(fd_calc.evaluate(A, B))
+    #    print(f"bootstrap {i+1}", end="\r")
+    #    
+    #split_fd = np.array(split_fd)
 
     # PRECOMPUTING SIMILARITIES
     
     # cosine embedding similarity
     print("Computing embedding similarity matrix...")
-    norms = np.linalg.norm(gen_emb, axis=1, keepdims=True)
-    embs_norm = gen_emb / (norms + 1e-8)
+    norms = np.linalg.norm(ref_emb, axis=1, keepdims=True)
+    embs_norm = ref_emb / (norms + 1e-8)
     emb_sim = embs_norm @ embs_norm.T
+    print("cosine dim", emb_sim.shape)
 
     # pairwise Euclidean distances
     dists = pairwise_distances(
-        gen_emb,
+        ref_emb,
         metric="euclidean"
     )
     # unique distances only
-    dists = dists[np.triu_indices_from(dists, k=1)]
+    #dists = dists[np.triu_indices_from(dists, k=1)]
+    print("euclid dim", dists.shape)
+    #print(dists)
 
     # ecfp4 tanimoto similarity
     print("Computing ecfp4 tanimoto similarity matrix...")
     fp_sim = tanimoto_matrix_block(ref_fps, block_size=512)
     fp_sim = fp_sim / np.linalg.norm(fp_sim)
+    print("tanimoto dim", fp_sim.shape)
 
     # ---
     # COMPARING EMBEDDINGS DISTRIBUTIONS
@@ -190,7 +199,7 @@ def calculate_stats(gen_emb, ref_emb, ref_fps, n_top=10,
     
     # PCA eigenvalues
     # covariance matrix
-    cov = np.cov(gen_emb, rowvar=False)
+    cov = np.cov(ref_emb, rowvar=False)
 
     # eigenvalues (sorted descending)
     eigvals = np.linalg.eigvalsh(cov)
@@ -264,11 +273,11 @@ def calculate_stats(gen_emb, ref_emb, ref_fps, n_top=10,
     corr = calculate_corr(emb_sim, fp_sim)
 
     return {
-        "split_fd": split_fd,
+        #"split_fd": split_fd,
         "local_emb_dist": local_emb_dist,
         "local_emb_cosine_sim": local_emb_cosine_sim,
-        "emb_dist": dists,
-        "emb_cosine": emb_sim,
+        "emb_dist": dists[np.triu_indices_from(dists, k=1)][:1000000],
+        "emb_cosine": emb_sim[np.triu_indices_from(emb_sim, k=1)][:1000000],
         "tanimoto_av": tanimoto_av,
         "participation_ratio": pr,
         "dimensions_90_variance": n90,
@@ -290,7 +299,7 @@ for encoder in gen_emb_dict.keys():
     gen_emb = gen_emb_dict[encoder]
     ref_emb = ref_emb_dict[encoder]
 
-    stats = calculate_stats(gen_emb, ref_emb, ref_emb_dict["benchmark_ecfp4"], n_top=500, n_bootstrap=5000, sample_size=10000)
+    stats = calculate_stats(gen_emb, ref_emb, ref_emb_dict["benchmark_ecfp4"], n_top=250, n_bootstrap=5000, sample_size=8000)
     all_stats[encoder] = stats
     
 # flatten into savez-friendly format
