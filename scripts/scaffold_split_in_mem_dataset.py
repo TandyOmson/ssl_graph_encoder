@@ -115,14 +115,14 @@ if args.labels:
     dataset = InMemoryDataset()
     dataset.smiles = train_smis
     dataset.y = train_labels
-    torch.save(dataset, f"{base_name}_train_labels.pt")
+    torch.save(dataset, f"{base_name}_train_smis_labels.pt")
 
     dataset = InMemoryDataset()
     dataset.smiles = val_smis
     dataset.y = val_labels
-    torch.save(dataset, f"{base_name}_val_labels.pt")
+    torch.save(dataset, f"{base_name}_val_smis_labels.pt")
 
     dataset = InMemoryDataset()
     dataset.smiles = test_smis
     dataset.y = test_labels
-    torch.save(dataset, f"{base_name}_test_labels.pt")
+    torch.save(dataset, f"{base_name}_test_smis_labels.pt")
