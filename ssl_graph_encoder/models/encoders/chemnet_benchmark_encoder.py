@@ -51,6 +51,7 @@ class SmilesEncoder(nn.Module):
             hidden_size=hidden_dim,
             num_layers=2,
             batch_first=True,
+            bidirectional=True,
         )
 
         #self.fc = nn.Linear(
@@ -58,7 +59,7 @@ class SmilesEncoder(nn.Module):
         #    feat_dim,
         #)
 
-        self.output_dim = hidden_dim
+        self.output_dim = hidden_dim*2
 
     def encode_smiles(self, smiles_list):
         batch_tokens = []
@@ -91,14 +92,16 @@ class SmilesEncoder(nn.Module):
         x = self.selu(self.conv1(x))
         x = self.selu(self.conv2(x))
 
-        x = self.pool(x)
+        #x = self.pool(x)
 
         # (B, L, C)
         x = x.transpose(1, 2)
 
-        _, (h_n, _) = self.lstm(x)
+        out, (h_n, _) = self.lstm(x)
+        #h = torch.cat([h_n[-2], h_n[-1]], dim=-1)
+        h = out.mean(dim=1)
 
         # final LSTM layer hidden state
-        h = h_n[-1]
+        #h = h_n[-1]
 
         return h
