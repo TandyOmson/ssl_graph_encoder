@@ -428,6 +428,7 @@ class SmilesToGraph:
             conf_ids = self._embed_conformers(mol, n_confs=self.max_confs, optimise_mmff=optimise_mmff)
 
         g0 = self.mol_to_graph(mol, conf_id=conf_ids[0])
+        g0.smiles = smi
 
         conf_pool: List[Data] = []
         if return_all_confs and len(conf_ids) > 1:
