@@ -7,6 +7,7 @@ from joblib import Parallel, delayed
 from tqdm import tqdm
 import numpy as np
 import sys
+from sklearn.metrics import pairwise_distances
 
 class FrechetDistance:
     def __init__(self):
@@ -45,84 +46,6 @@ class FrechetDistance:
 
         return float(diff.dot(diff) + np.trace(cov1) + np.trace(cov2) - 2 * tr_covmean)
 
-def rbf_mmd(X, Y, sigma=None):
-    """
-    Unbiased RBF-kernel MMD^2.
-
-    Parameters
-    ----------
-    X : (n,d) array
-    Y : (m,d) array
-    sigma : float or None
-        RBF bandwidth. If None, use median heuristic.
-
-    Returns
-    -------
-    float
-        MMD^2
-    """
-
-    X = np.asarray(X, dtype=np.float64)
-    Y = np.asarray(Y, dtype=np.float64)
-
-    n = len(X)
-    m = len(Y)
-
-    # --------------------------------------------------
-    # Median heuristic
-    # --------------------------------------------------
-    if sigma is None:
-        Z = np.vstack([X, Y])
-
-        # pairwise squared distances
-        D = cdist(Z, Z, metric="sqeuclidean")
-
-        # exclude diagonal
-        D = D[np.triu_indices_from(D, k=1)]
-
-        sigma = np.sqrt(0.5 * np.median(D))
-
-        # numerical safeguard
-        sigma = max(sigma, 1e-8)
-
-    gamma = 1.0 / (2.0 * sigma**2)
-
-    # --------------------------------------------------
-    # Kernel matrices
-    # --------------------------------------------------
-    Kxx = np.exp(-gamma * cdist(X, X, metric="sqeuclidean"))
-    Kyy = np.exp(-gamma * cdist(Y, Y, metric="sqeuclidean"))
-    Kxy = np.exp(-gamma * cdist(X, Y, metric="sqeuclidean"))
-
-    # remove diagonals for unbiased estimate
-    np.fill_diagonal(Kxx, 0.0)
-    np.fill_diagonal(Kyy, 0.0)
-
-    mmd2 = (
-        Kxx.sum() / (n * (n - 1))
-        + Kyy.sum() / (m * (m - 1))
-        - 2.0 * Kxy.mean()
-    )
-
-    return float(mmd2)
-
-def query_to_set(query_emb, set_embs, n_top, dtype="real"):
-    if dtype == "real":
-        dot = set_embs @ query_emb
-        denom = np.sum(set_embs**2, axis=1) + np.dot(query_emb, query_emb) - dot
-        eps = 1e-8
-        sims = dot / (denom + eps)
-    elif dtype == "bit":
-        inter = np.logical_and(set_embs, query_emb).sum(axis=1)
-        union = np.logical_or(set_embs, query_emb).sum(axis=1)
-        sims = inter / (union + 1e-8)
-    else:
-        raise ValueError
-
-    n_top = min(n_top, len(sims))
-    idx = np.argpartition(sims, -n_top)[-n_top:]
-    return sims[idx].mean()
-
 def tanimoto_matrix_block(fps, block_size=512):
     """Compute Tanimoto similarity matrix in blocks with progress bar."""
     N = fps.shape[0]
@@ -147,43 +70,39 @@ def tanimoto_matrix_block(fps, block_size=512):
 
     return sims
 
-def calculate_corr(embs, fps, block_size=512):
+def calculate_corr(emb_sim, fp_sim):
     """
     Correlation between embedding-space similarity and fingerprint-space similarity.
     Uses progress bars for large datasets.
     """
-    # --- embedding similarity ---
-    print("Computing embedding similarity matrix...")
-    norms = np.linalg.norm(embs, axis=1, keepdims=True)
-    embs_norm = embs / (norms + 1e-8)
-    emb_sim = embs_norm @ embs_norm.T
-    
-    # --- fingerprint similarity (Tanimoto) ---
-    print("Computing fingerprint similarity matrix...")
-    fp_sim = tanimoto_matrix_block(fps, block_size=block_size)
-    #fp_sim = fp_sim / np.linalg.norm(fp_sim)
-
     # --- correlation ---
     print("Computing correlation...")
 
-    n_pairs = 200000
+    # n_pairs = 200000
 
-    rng = np.random.default_rng(0)
-    i = rng.integers(0, len(embs), n_pairs)
-    j = rng.integers(0, len(embs), n_pairs)
+    # rng = np.random.default_rng(0)
+    # i = rng.integers(0, len(embs), n_pairs)
+    # j = rng.integers(0, len(embs), n_pairs)
     
-    mask = i != j
-    i = i[mask]
-    j = j[mask]
+    # mask = i != j
+    # i = i[mask]
+    # j = j[mask]
+
+    # emb_sim = emb_sim[i, j]
+    # fp_sim = fp_sim[i, j]
     
     corr, _ = spearmanr(
-        emb_sim[i, j],
-        fp_sim[i, j]
+        emb_sim,
+        fp_sim
     )
     return corr
 
 def calculate_stats(gen_emb, ref_emb, ref_fps, n_top=10,
                     n_bootstrap=100, sample_size=1000):
+
+    # ---
+    # FRECHET DISTANCE BOOTSTRAP
+    # ---
 
     fd_calc = FrechetDistance()
 
@@ -192,13 +111,9 @@ def calculate_stats(gen_emb, ref_emb, ref_fps, n_top=10,
 
     rng = np.random.default_rng(0)
 
-    # --------------------------------------------------------
-    # 1. Distribution of FD and MMD for random split of ref+gen
-    # --------------------------------------------------------
-
+    # split fd
     print("split FD")
     split_fd = []
-    #split_mmd = []
 
     for i in range(n_bootstrap):
 
@@ -210,35 +125,94 @@ def calculate_stats(gen_emb, ref_emb, ref_fps, n_top=10,
 
         split_fd.append(fd_calc.evaluate(A, B))
         print(f"bootstrap {i+1}", end="\r")
-
-        # simple linear-kernel MMD
-        #split_mmd.append(rbf_mmd(A, B))
         
     split_fd = np.array(split_fd)
-    #split_mmd = np.array(split_mmd)
 
-    # --------------------------------------------------------
-    # 2. FD and MMD of ref_emb and gen_emb
-    # --------------------------------------------------------
-
-    print("FD")
-    fd = fd_calc.evaluate(gen_emb, ref_emb)
-
-    #mmd = rbf_mmd(gen_emb, ref_emb)
-
-    # --------------------------------------------------------
-    # 3. Distribution of average top n_top tanimoto similarities
-    # --------------------------------------------------------
-
-    print("calculating tanimoto blocks")
-    emb_norm = ref_emb / (
-        np.linalg.norm(ref_emb, axis=1, keepdims=True) + 1e-8
-    )
-    emb_sim = emb_norm @ emb_norm.T
-
-    fp_sim = tanimoto_matrix_block(ref_fps)
-
+    # PRECOMPUTING SIMILARITIES
     
+    # cosine embedding similarity
+    print("Computing embedding similarity matrix...")
+    norms = np.linalg.norm(gen_emb, axis=1, keepdims=True)
+    embs_norm = gen_emb / (norms + 1e-8)
+    emb_sim = embs_norm @ embs_norm.T
+
+    # pairwise Euclidean distances
+    dists = pairwise_distances(
+        gen_emb,
+        metric="euclidean"
+    )
+    # unique distances only
+    dists = dists[np.triu_indices_from(dists, k=1)]
+
+    # ecfp4 tanimoto similarity
+    print("Computing ecfp4 tanimoto similarity matrix...")
+    fp_sim = tanimoto_matrix_block(ref_fps, block_size=512)
+    fp_sim = fp_sim / np.linalg.norm(fp_sim)
+
+    # ---
+    # COMPARING EMBEDDINGS DISTRIBUTIONS
+    # ---
+
+    # Average euclidian distance in local neighbourhood in embedded space per sample
+    print("local embedding distances")
+    local_emb_dist = []
+    for n in range(sample_size):
+        i = rng.integers(len(ref_emb))
+        emb_idx = np.argpartition(
+            dists[i],
+            -(n_top + 1)
+        )[-(n_top + 1):]
+
+        emb_idx = emb_idx[emb_idx != i]
+        local_emb_dist.append(
+            dists[i, emb_idx].mean()
+        )
+        print(f"sample {n+1}", end="\r")
+
+    local_emb_dist = np.asarray(local_emb_dist)
+
+    # Average cosine similarity in local neighbourhood in embedded space per sample
+    print("local embedding cosine similarity")
+    local_emb_cosine_sim = []
+    for n in range(sample_size):
+        i = rng.integers(len(ref_emb))
+        emb_idx = np.argpartition(
+            emb_sim[i],
+            -(n_top + 1)
+        )[-(n_top + 1):]
+        emb_idx = emb_idx[emb_idx != i]
+        local_emb_cosine_sim.append(
+            emb_sim[i, emb_idx].mean()
+        )
+        print(f"sample {n+1}", end="\r")
+
+    local_emb_cosine_sim = np.asarray(local_emb_cosine_sim)
+    
+    # PCA eigenvalues
+    # covariance matrix
+    cov = np.cov(gen_emb, rowvar=False)
+
+    # eigenvalues (sorted descending)
+    eigvals = np.linalg.eigvalsh(cov)
+    eigvals = np.sort(eigvals)[::-1]
+
+    # participation ratio (effective dimensionality)
+    pr = (eigvals.sum() ** 2) / np.sum(eigvals ** 2)
+
+    # fraction of variance explained
+    explained = eigvals / eigvals.sum()
+
+    # cumulative variance
+    cum_explained = np.cumsum(explained)
+
+    # dimensions required for 90% variance
+    n90 = np.searchsorted(cum_explained, 0.90) + 1
+
+    # ---
+    # COMPARING WITH ECFP4
+    # ---
+
+    # Distribution of average ecfp4 tanimoto similarities for top n neighours in embedded space per sample 
     tanimoto_av = []
     embedding_tanimoto = []
 
@@ -256,14 +230,11 @@ def calculate_stats(gen_emb, ref_emb, ref_fps, n_top=10,
         embedding_tanimoto.append(
             fp_sim[i, emb_idx].mean()
         )
-        print(f"neighbour {n+1}", end="\r")
+        print(f"sample {n+1}", end="\r")
 
     tanimoto_av = np.asarray(embedding_tanimoto)
     
-    # --------------------------------------------------------
-    # 4. Overlap of top-n neighbours
-    # --------------------------------------------------------
-
+    # Distribution of overlaps of top-n neighbours in ecfp4 tanimoto and embedded space
     print("neighbour overlap")
     neighbour_overlap = []
 
@@ -285,22 +256,24 @@ def calculate_stats(gen_emb, ref_emb, ref_fps, n_top=10,
         neighbour_overlap.append(
             len(emb_set & fp_set) / n_top
         )
-        print(f"neighbour {n+1}", end="\r")
+        print(f"sample {n+1}", end="\r")
 
     neighbour_overlap = np.asarray(neighbour_overlap)
 
-    # --------------------------------------------------------
-    # 5. Continuity proxy
-    # --------------------------------------------------------
-
-    corr = calculate_corr(ref_emb, ref_fps)
+    # Spearman correlation between pairwise distances in embedding space and ecfp4 tanimoto space
+    corr = calculate_corr(emb_sim, fp_sim)
 
     return {
         "split_fd": split_fd,
-        #"split_mmd": split_mmd,
-        "fd": fd,
-        #"mmd": mmd,
+        "local_emb_dist": local_emb_dist,
+        "local_emb_cosine_sim": local_emb_cosine_sim,
+        "emb_dist": dists,
+        "emb_cosine": emb_sim,
         "tanimoto_av": tanimoto_av,
+        "participation_ratio": pr,
+        "dimensions_90_variance": n90,
+        "eigenvalues": eigvals,
+        "total_variance": eigvals.sum(),
         "neighbour_overlap": neighbour_overlap,
         "corr": corr,
     }
@@ -317,7 +290,7 @@ for encoder in gen_emb_dict.keys():
     gen_emb = gen_emb_dict[encoder]
     ref_emb = ref_emb_dict[encoder]
 
-    stats = calculate_stats(gen_emb, ref_emb, ref_emb_dict["benchmark_ecfp4"], n_top=50, n_bootstrap=1000, sample_size=1000)
+    stats = calculate_stats(gen_emb, ref_emb, ref_emb_dict["benchmark_ecfp4"], n_top=500, n_bootstrap=5000, sample_size=10000)
     all_stats[encoder] = stats
     
 # flatten into savez-friendly format
