@@ -65,8 +65,8 @@ def tanimoto_matrix_block(fps, block_size=512):
             norms[None, :] - dot
         )
 
-        eps = 1e-8
-        sims[i:i_end] = dot / (denom + eps)
+        denom = np.maximum(denom, 1e-12)
+        sims[i:i_end, :] = dot / denom
 
     return sims
 
@@ -117,9 +117,9 @@ def calculate_stats(gen_emb, ref_emb, ref_fps, n_top=10,
     rng = np.random.default_rng(0)
 
     # split fd
-    print("split FD")
-    split_fd = []
-
+    #print("split FD")
+    #split_fd = []
+    #
     #for i in range(n_bootstrap):
     #
     #    idx = rng.permutation(len(ref_emb))
@@ -157,6 +157,8 @@ def calculate_stats(gen_emb, ref_emb, ref_fps, n_top=10,
     fp_sim = tanimoto_matrix_block(ref_fps, block_size=512)
     fp_sim = fp_sim / np.linalg.norm(fp_sim)
     print("tanimoto dim", fp_sim.shape)
+    print(fp_sim.max())
+    print(fp_sim.min())
 
     # ---
     # COMPARING EMBEDDINGS DISTRIBUTIONS
@@ -276,8 +278,8 @@ def calculate_stats(gen_emb, ref_emb, ref_fps, n_top=10,
         #"split_fd": split_fd,
         "local_emb_dist": local_emb_dist,
         "local_emb_cosine_sim": local_emb_cosine_sim,
-        "emb_dist": dists[np.triu_indices_from(dists, k=1)][:1000000],
-        "emb_cosine": emb_sim[np.triu_indices_from(emb_sim, k=1)][:1000000],
+        "emb_dist": dists[np.triu_indices_from(dists, k=1)][:2500000],
+        "emb_cosine": emb_sim[np.triu_indices_from(emb_sim, k=1)][:2500000],
         "tanimoto_av": tanimoto_av,
         "participation_ratio": pr,
         "dimensions_90_variance": n90,
@@ -299,7 +301,7 @@ for encoder in gen_emb_dict.keys():
     gen_emb = gen_emb_dict[encoder]
     ref_emb = ref_emb_dict[encoder]
 
-    stats = calculate_stats(gen_emb, ref_emb, ref_emb_dict["benchmark_ecfp4"], n_top=250, n_bootstrap=5000, sample_size=8000)
+    stats = calculate_stats(gen_emb, ref_emb, ref_emb_dict["benchmark_ecfp4"], n_top=250, n_bootstrap=2500, sample_size=8000)
     all_stats[encoder] = stats
     
 # flatten into savez-friendly format
